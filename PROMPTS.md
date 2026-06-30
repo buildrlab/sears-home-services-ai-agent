@@ -569,3 +569,54 @@ The assistant checked official PostgreSQL release status and declined to update 
 
 - `PLAN.md`
 - `backend/README.md`
+
+## 2026-07-01 Continue Until All Phases Are Complete
+
+### Prompt
+
+The user asked what the assistant was working on. The assistant reported that
+Phase 1 was complete and merged into `dev`, and that the next step was Phase 2.
+The user then instructed the assistant not to stop working until all phases are
+complete and the solution is strong on performance, cost optimization, and
+security.
+
+### Response
+
+The assistant created an active work goal for the full delivery, started Phase 2
+from `dev`, and implemented the scheduling domain. Phase 2 added customer and
+appointment persistence, a scheduling service, hold/book/cancel APIs, active
+slot uniqueness for double-booking protection, confirmation persistence, API
+tests, repeated concurrent hold tests, and PostgreSQL 18 API smoke verification.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+- `README.md`
+- `backend/README.md`
+- `backend/alembic/versions/0002_create_customer_appointment_schema.py`
+- `backend/app/__init__.py`
+- `backend/app/api/__init__.py`
+- `backend/app/api/scheduling.py`
+- `backend/app/dependencies.py`
+- `backend/app/exceptions.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/app/repositories.py`
+- `backend/app/schemas.py`
+- `backend/app/services/__init__.py`
+- `backend/app/services/scheduling.py`
+- `backend/tests/test_migrations.py`
+- `backend/tests/test_scheduling_api.py`
+- `backend/tests/test_scheduling_service.py`
+- `backend/tests/test_seed_and_repositories.py`
+- `docs/runbooks/local-testing.md`
+
+### Verification
+
+- `python -W error -m pytest` passed with 22 tests.
+- `ruff check .` passed for backend.
+- Alembic migrated PostgreSQL 18 from empty through `0002_appointment_schema`.
+- Seed data inserted or verified 6 technicians in PostgreSQL 18.
+- Local FastAPI smoke verified health, technician match, hold creation,
+  duplicate hold HTTP `409 Conflict`, booking, and persisted appointment fetch.

@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Technician, TechnicianServiceArea, TechnicianSpecialty
+
+
+@dataclass(frozen=True)
+class AvailabilityWindow:
+    day_of_week: int
+    start_time: time
+    end_time: time
+    capacity: int
 
 
 @dataclass(frozen=True)
@@ -17,6 +26,7 @@ class TechnicianMatch:
     email: str
     specialties: tuple[str, ...]
     service_areas: tuple[str, ...]
+    availability: tuple[AvailabilityWindow, ...]
 
 
 class TechnicianRepository:
@@ -60,6 +70,7 @@ class TechnicianRepository:
             .options(
                 selectinload(Technician.specialties),
                 selectinload(Technician.service_areas),
+                selectinload(Technician.availability_slots),
             )
             .order_by(Technician.name)
         )
@@ -73,6 +84,20 @@ class TechnicianRepository:
                     sorted(specialty.appliance_type for specialty in technician.specialties)
                 ),
                 service_areas=tuple(sorted(area.zip_code for area in technician.service_areas)),
+                availability=tuple(
+                    sorted(
+                        (
+                            AvailabilityWindow(
+                                day_of_week=slot.day_of_week,
+                                start_time=slot.start_time,
+                                end_time=slot.end_time,
+                                capacity=slot.capacity,
+                            )
+                            for slot in technician.availability_slots
+                        ),
+                        key=lambda slot: (slot.day_of_week, slot.start_time, slot.end_time),
+                    )
+                ),
             )
             for technician in technicians
         ]
