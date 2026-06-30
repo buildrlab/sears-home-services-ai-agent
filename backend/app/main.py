@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.api.scheduling import router as scheduling_router
 from app.config import Settings, get_settings
 from app.schemas import HealthResponse
 
@@ -25,6 +26,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             environment=runtime_settings.environment,
         )
 
+    app.include_router(scheduling_router)
     return app
 
 

@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+
+import pytest
+from sqlalchemy.engine import Engine
+
+from app.database import create_session_factory
+from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
+from app.models import Appointment, AppointmentStatus
+from app.schemas import AppointmentHoldRequest, CustomerCreate
+from app.seed import seed_reference_data
+from app.services.scheduling import SchedulingService
+
+
+def _hold_request(
+    *,
+    technician_id: int = 1,
+    scheduled_start: datetime | None = None,
+    zip_code: str = "75201",
+    appliance_type: str = "refrigerator",
+) -> AppointmentHoldRequest:
+    return AppointmentHoldRequest(
+        customer=CustomerCreate(
+            full_name="Jordan Customer",
+            email="jordan.customer@example.test",
+            phone="+15551234567",
+        ),
+        technician_id=technician_id,
+        appliance_type=appliance_type,
+        zip_code=zip_code,
+        scheduled_start=scheduled_start or datetime(2026, 7, 6, 8, 0, tzinfo=UTC),
+        issue_summary="Refrigerator is not cooling.",
+    )
+
+
+def _seed(session) -> None:
+    seed_reference_data(session)
+    session.commit()
+
+
+def test_scheduling_service_creates_hold_and_books_confirmation(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+
+    hold = service.create_hold(_hold_request())
+    db_session.commit()
+    booked = service.book_appointment(hold.id)
+    db_session.commit()
+
+    persisted = service.get_appointment(booked.id)
+    assert persisted.status == AppointmentStatus.BOOKED.value
+    assert persisted.confirmation_code is not None
+    assert persisted.confirmation_code.startswith("SHS-")
+    assert persisted.customer.email == "jordan.customer@example.test"
+    assert persisted.technician.name == "Avery Johnson"
+
+
+def test_scheduling_service_rejects_unsupported_zip(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+
+    with pytest.raises(InvalidSchedulingRequestError, match="ZIP code"):
+        service.create_hold(_hold_request(zip_code="99999"))
+
+
+def test_scheduling_service_rejects_unsupported_appliance(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+
+    with pytest.raises(InvalidSchedulingRequestError, match="appliance"):
+        service.create_hold(_hold_request(appliance_type="oven"))
+
+
+def test_scheduling_service_rejects_unavailable_time(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+
+    with pytest.raises(InvalidSchedulingRequestError, match="not available"):
+        service.create_hold(_hold_request(scheduled_start=datetime(2026, 7, 6, 17, 0, tzinfo=UTC)))
+
+
+def test_scheduling_service_prevents_double_booking(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+    service.create_hold(_hold_request())
+    db_session.commit()
+
+    with pytest.raises(SlotUnavailableError):
+        service.create_hold(
+            _hold_request(
+                # Use a second customer so this test only exercises slot uniqueness.
+                scheduled_start=datetime(2026, 7, 6, 8, 0, tzinfo=UTC),
+            )
+        )
+
+
+def test_cancelled_appointment_releases_slot(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+    hold = service.create_hold(_hold_request())
+    db_session.commit()
+
+    cancelled = service.cancel_appointment(hold.id)
+    db_session.commit()
+    second_hold = service.create_hold(_hold_request())
+    db_session.commit()
+
+    assert cancelled.status == AppointmentStatus.CANCELLED.value
+    assert second_hold.id != cancelled.id
+    assert second_hold.status == AppointmentStatus.HELD.value
+
+
+def test_concurrent_holds_allow_only_one_winner(sqlite_engine: Engine) -> None:
+    session_factory = create_session_factory(sqlite_engine)
+    with session_factory() as session:
+        _seed(session)
+
+    def attempt_hold(index: int) -> str:
+        with session_factory() as session:
+            service = SchedulingService(session)
+            try:
+                request = _hold_request()
+                request.customer.email = f"race-{index}@example.test"
+                appointment = service.create_hold(request)
+                session.commit()
+                return f"held:{appointment.id}"
+            except SlotUnavailableError:
+                session.rollback()
+                return "unavailable"
+
+    for worker_count in (2, 4, 8):
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            results = list(executor.map(attempt_hold, range(worker_count)))
+
+        assert sum(result.startswith("held:") for result in results) == 1
+        assert results.count("unavailable") == worker_count - 1
+
+        with session_factory() as session:
+            appointments = session.query(Appointment).all()
+            for appointment in appointments:
+                appointment.status = AppointmentStatus.CANCELLED.value
+                appointment.active_slot_key = None
+            session.commit()

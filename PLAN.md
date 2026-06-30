@@ -68,9 +68,9 @@ Keep this table current after every phase or meaningful planning change.
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
 | Phase 0.5: Twilio Access and Provisioning | Complete | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, Gather fallback is the explicit Phase 0.5 live-call path, a real inbound call reached the smoke webhook, and the user reported Twilio was restored after the smoke test. | Keep ConversationRelay addendum/enablement as a Phase 4 gate. |
-| Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as Phase 2 expands the scheduling schema and transactional booking behavior. |
-| Phase 2: Scheduling Domain | Next | Not started. | Implement transactional scheduling and double-booking protection. |
-| Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
+| Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as later phases expand the schema and API surface. |
+| Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for Phase 3. |
+| Phase 3: Diagnostic Agent | Next | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
 | Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
 | Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
 | Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
@@ -282,6 +282,25 @@ Exit criteria:
 
 - Scheduling can be exercised through API tests.
 - Race-condition tests pass repeatedly.
+
+Implementation status:
+
+- [x] Customer and appointment schema added with Alembic migration `0002_appointment_schema`.
+- [x] Appointment active slot key is unique while a slot is held or booked, and cleared on cancellation to release capacity.
+- [x] Scheduling service validates technician ZIP coverage, appliance specialty, and recurring availability windows.
+- [x] Slot hold, book, cancel, get, list, and match operations are available through FastAPI endpoints.
+- [x] Confirmation codes persist when held appointments are booked.
+- [x] Double-booking protection is covered by deterministic API tests and repeated concurrent service tests.
+- [x] Local PostgreSQL 18 migration and API smoke verification completed against a temporary container on port `55433`.
+
+Latest verification:
+
+- 2026-07-01: `python -W error -m pytest` passed with 22 tests and no warnings.
+- 2026-07-01: `ruff check .` passed for backend.
+- 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty through `0002_appointment_schema`.
+- 2026-07-01: `python -m app.seed` inserted or verified 6 technicians in PostgreSQL 18.
+- 2026-07-01: Local Uvicorn served `GET /healthz`, `GET /scheduling/matches`, `POST /appointments/holds`, `POST /appointments/{id}/book`, and `GET /appointments/{id}` against PostgreSQL 18.
+- 2026-07-01: Duplicate hold for the same technician and scheduled start returned HTTP `409 Conflict` against PostgreSQL 18.
 
 ## Phase 3: Diagnostic Agent
 

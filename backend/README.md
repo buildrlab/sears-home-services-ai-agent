@@ -80,6 +80,37 @@ Health check:
 curl http://127.0.0.1:8000/healthz
 ```
 
+Find matching technicians:
+
+```bash
+curl "http://127.0.0.1:8000/scheduling/matches?zip_code=75201&appliance_type=refrigerator"
+```
+
+Create a temporary appointment hold:
+
+```bash
+curl -X POST http://127.0.0.1:8000/appointments/holds \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer": {
+      "full_name": "Jordan Customer",
+      "email": "jordan.customer@example.test",
+      "phone": "+15551234567"
+    },
+    "technician_id": 1,
+    "appliance_type": "refrigerator",
+    "zip_code": "75201",
+    "scheduled_start": "2026-07-06T08:00:00+00:00",
+    "issue_summary": "Refrigerator is not cooling."
+  }'
+```
+
+Book the hold:
+
+```bash
+curl -X POST http://127.0.0.1:8000/appointments/1/book
+```
+
 ## Testing
 
 Backend implementation must include:
@@ -91,7 +122,7 @@ Backend implementation must include:
 - Twilio signature validation tests.
 - Scheduling race-condition tests.
 
-Current Phase 1 checks:
+Current backend checks:
 
 ```bash
 cd backend
@@ -100,12 +131,21 @@ ruff check .
 pip-audit
 ```
 
-Phase 1 tests cover the health endpoint, settings aliases, Alembic migration
-from an empty database, deterministic technician seed data, and repository
-queries by ZIP code plus appliance type.
+Tests cover the health endpoint, settings aliases, Alembic migrations from an
+empty database, deterministic technician seed data, repository queries by ZIP
+code plus appliance type, scheduling API flows, confirmation persistence,
+double-booking rejection, cancellation slot release, and concurrent hold races.
 
 For local PostgreSQL verification, `alembic upgrade head` and `python -m app.seed`
 were run against PostgreSQL 18. PostgreSQL 19 is not used because it is not GA.
+
+Phase 2 PostgreSQL smoke verification additionally exercised:
+
+- `GET /scheduling/matches`
+- `POST /appointments/holds`
+- duplicate hold returning HTTP `409 Conflict`
+- `POST /appointments/{id}/book`
+- `GET /appointments/{id}`
 
 ## Infrastructure
 

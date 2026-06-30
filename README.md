@@ -64,6 +64,13 @@ python -m app.seed
 uvicorn app.main:app --reload --port 8000
 ```
 
+Smoke test the backend:
+
+```bash
+curl http://127.0.0.1:8000/healthz
+curl "http://127.0.0.1:8000/scheduling/matches?zip_code=75201&appliance_type=refrigerator"
+```
+
 Run frontend checks after frontend dependencies are installed:
 
 ```bash

@@ -62,6 +62,7 @@ def test_repository_matches_technicians_by_zip_and_appliance(db_session: Session
     assert matches[0].name == "Avery Johnson"
     assert "refrigerator" in matches[0].specialties
     assert "75201" in matches[0].service_areas
+    assert len(matches[0].availability) == 2
 
 
 def test_repository_returns_empty_list_when_no_technician_matches(db_session: Session) -> None:

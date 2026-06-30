@@ -43,6 +43,33 @@ uvicorn app.main:app --port 8000
 curl http://127.0.0.1:8000/healthz
 ```
 
+Phase 2 and later must also verify the scheduling API:
+
+```bash
+curl "http://127.0.0.1:8000/scheduling/matches?zip_code=75201&appliance_type=refrigerator"
+
+curl -X POST http://127.0.0.1:8000/appointments/holds \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer": {
+      "full_name": "Jordan Customer",
+      "email": "jordan.customer@example.test",
+      "phone": "+15551234567"
+    },
+    "technician_id": 1,
+    "appliance_type": "refrigerator",
+    "zip_code": "75201",
+    "scheduled_start": "2026-07-06T08:00:00+00:00",
+    "issue_summary": "Refrigerator is not cooling."
+  }'
+
+curl -X POST http://127.0.0.1:8000/appointments/1/book
+curl http://127.0.0.1:8000/appointments/1
+```
+
+Repeat the hold request for the same technician and `scheduled_start` with a
+different customer. The expected response is HTTP `409 Conflict`.
+
 If local port `5432` is already in use, run a temporary PostgreSQL 18 container
 on a different port and override `DATABASE_URL`:
 
