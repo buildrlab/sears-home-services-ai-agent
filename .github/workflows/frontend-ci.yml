@@ -1,0 +1,50 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: ["dev", "main"]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches: ["dev", "main"]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "frontend/pnpm-lock.yaml"
+      - name: Validate scaffold
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') == '' }}
+        run: |
+          test -f package.json
+          echo "Frontend lockfile is not present yet; full frontend CI activates after Phase 6 dependency installation."
+      - name: Install dependencies
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm lint
+      - name: Unit tests
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm test
+      - name: Build
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm build
