@@ -37,6 +37,7 @@ Do not commit real values. Use a local uncommitted `.env` file, shell environmen
 | `setup.py` | Validate credentials, find/create the SHS TwiML App, update webhook URLs, optionally associate a selected phone number, and print required environment values. | Yes | Implemented |
 | `verify.py` | Inspect Twilio credentials, TwiML App, phone number, webhook URLs, and manual ConversationRelay readiness gates without making changes. | No | Implemented |
 | `list_numbers.py` | Search available voice-capable local numbers and print candidates for manual selection. It does not purchase numbers. | No | Implemented |
+| `smoke_server.py` | Run a local Twilio Voice webhook that returns Gather TwiML and records redacted inbound call events for Phase 0.5 live-call verification. | No | Implemented |
 
 When adding a script, update this table in the same commit.
 
@@ -80,6 +81,69 @@ To attach a selected number:
 ```bash
 export TWILIO_PHONE_NUMBER="+14155551234"
 
+python3.14 scripts/twilio/setup.py \
+  --friendly-name "SHS AI Agent" \
+  --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \
+  --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" \
+  --phone-number "$TWILIO_PHONE_NUMBER"
+```
+
+`--phone-number` is normalized to E.164, so common formatting such as
+`+1 (415) 555-1234` is accepted and sent to Twilio as `+14155551234`.
+When `--dry-run` would create a new TwiML App and a phone number is provided,
+the script verifies the phone number exists and reports
+`would_attach_after_app_create` because the final association needs the new
+TwiML App SID from the real setup run.
+
+To verify the live Twilio state after setup:
+
+```bash
+python3.14 scripts/twilio/verify.py \
+  --friendly-name "SHS AI Agent" \
+  --phone-number "$TWILIO_PHONE_NUMBER" \
+  --expected-voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \
+  --expected-status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status"
+```
+
+## Local Inbound Call Smoke Test
+
+Use this before the backend exists to prove the selected Twilio number can reach
+code running locally.
+
+Terminal 1:
+
+```bash
+python3.14 scripts/twilio/smoke_server.py --port 8765
+```
+
+Terminal 2, using either ngrok or cloudflared:
+
+```bash
+ngrok http 8765
+```
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8765
+```
+
+Then point Twilio to the HTTPS tunnel URL:
+
+```bash
+export TWILIO_PHONE_NUMBER="+14155551234"
+export TUNNEL_BASE_URL="https://<tunnel-host>"
+
+python3.14 scripts/twilio/setup.py \
+  --friendly-name "SHS AI Agent" \
+  --voice-url "$TUNNEL_BASE_URL/twilio/voice/incoming" \
+  --status-callback-url "$TUNNEL_BASE_URL/twilio/voice/status" \
+  --phone-number "$TWILIO_PHONE_NUMBER"
+```
+
+Call the Twilio number. The smoke server should record `voice_incoming` and,
+after a digit or speech response, `gather_response`. Restore the AWS URL after
+the smoke test:
+
+```bash
 python3.14 scripts/twilio/setup.py \
   --friendly-name "SHS AI Agent" \
   --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \

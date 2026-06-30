@@ -21,6 +21,7 @@ from _client import (  # noqa: E402
     redact_sid,
     validate_application_sid,
     validate_e164,
+    validate_https_url,
 )
 
 DEFAULT_FRIENDLY_NAME = "SHS AI Agent"
@@ -44,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--phone-number",
         default=os.environ.get("TWILIO_PHONE_NUMBER"),
         help="Optional E.164 Twilio number expected to route to the TwiML App.",
+    )
+    parser.add_argument(
+        "--expected-voice-url",
+        help="Optional expected TwiML App Voice URL. Fails verification on mismatch.",
+    )
+    parser.add_argument(
+        "--expected-status-callback-url",
+        help="Optional expected TwiML App status callback URL. Fails verification on mismatch.",
     )
     parser.add_argument(
         "--credentials-only",
@@ -91,6 +100,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.credentials_only:
         return result
 
+    expected_voice_url = None
+    if args.expected_voice_url:
+        expected_voice_url = validate_https_url(
+            args.expected_voice_url, label="--expected-voice-url"
+        )
+
+    expected_status_callback_url = None
+    if args.expected_status_callback_url:
+        expected_status_callback_url = validate_https_url(
+            args.expected_status_callback_url,
+            label="--expected-status-callback-url",
+        )
+
     application_sid = None
     if args.application_sid:
         application_sid = validate_application_sid(
@@ -98,7 +120,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     application = _find_application(client, application_sid, args.friendly_name)
-    result["application"] = {
+    application_result = {
         "checked": True,
         "found": application is not None,
         "sid": application.get("sid") if application else None,
@@ -108,7 +130,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "voice_method": application.get("voice_method") if application else None,
         "status_callback_url": application.get("status_callback") if application else None,
     }
+    if expected_voice_url:
+        application_result["expected_voice_url"] = expected_voice_url
+        application_result["voice_url_ok"] = (
+            application is not None and application.get("voice_url") == expected_voice_url
+        )
+    if expected_status_callback_url:
+        application_result["expected_status_callback_url"] = expected_status_callback_url
+        application_result["status_callback_url_ok"] = (
+            application is not None
+            and application.get("status_callback") == expected_status_callback_url
+        )
+    result["application"] = application_result
     if application is None:
+        result["ok"] = False
+    if application_result.get("voice_url_ok") is False:
+        result["ok"] = False
+    if application_result.get("status_callback_url_ok") is False:
         result["ok"] = False
 
     phone_number = None
@@ -189,6 +227,13 @@ def print_text_summary(result: dict[str, Any]) -> None:
         print(f"- TwiML App found: {app['found']}")
         print(f"- TwiML App SID: {app.get('sid') or '(not found)'}")
         print(f"- Voice URL: {app.get('voice_url') or '(not set)'}")
+        if "voice_url_ok" in app:
+            print(f"- Voice URL ok: {app['voice_url_ok']}")
+        print(
+            f"- Status callback URL: {app.get('status_callback_url') or '(not set)'}"
+        )
+        if "status_callback_url_ok" in app:
+            print(f"- Status callback URL ok: {app['status_callback_url_ok']}")
         print(f"- Voice method: {app.get('voice_method') or '(not set)'}")
     else:
         print("- TwiML App check: skipped")

@@ -406,3 +406,82 @@ The assistant recorded that the Twilio number-search live check passed and ident
 - `PLAN.md`
 - `docs/runbooks/twilio-access.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Twilio Setup Dry-Run Dependency Fix
+
+### Prompt
+
+The user reported that `scripts/twilio/setup.py --phone-number "+1 737 355 9397" --dry-run` failed phone-number validation, and that rerunning with the normalized E.164 value failed with `Cannot attach a phone number without a TwiML App SID.` The user then reported a successful dry-run with the selected phone number redacted here: credential validation passed, TwiML App action was `would_create`, and phone action was `would_attach_after_app_create`.
+
+### Response
+
+The assistant identified the strict formatting behavior and a real dry-run planning bug. The Twilio client now normalizes common formatted phone numbers to E.164, and the setup script now supports dry-run planning when the TwiML App will be created before the phone-number association. Phase 0.5 remains blocked until the non-dry-run setup and verification pass against real Twilio resources.
+
+### Files Changed
+
+- `scripts/twilio/_client.py`
+- `scripts/twilio/setup.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Setup Applied
+
+### Prompt
+
+The user reported that the non-dry-run `scripts/twilio/setup.py` command succeeded with the selected phone number redacted here. Credential validation passed, the TwiML App action was `created`, and the phone-number action was `attached`.
+
+### Response
+
+The assistant treated this as evidence that Twilio provider-side setup succeeded while keeping Phase 0.5 blocked on independent `verify.py` confirmation, billing/trial status, ConversationRelay or Gather fallback decision, and a real inbound call when a webhook is available.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Verification Command
+
+### Prompt
+
+The user asked whether they need to run `verify.py`, then asked for the exact command.
+
+### Response
+
+The assistant explained that `verify.py` should be run because it independently reads Twilio state after setup and confirms the TwiML App plus phone association persisted. The assistant provided a verification command using the SHS TwiML App friendly name, the selected redacted phone number, and expected Voice URL/status callback URL assertions.
+
+### Files Changed
+
+- `scripts/twilio/verify.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Finish Phase 0.5
+
+### Prompt
+
+The user reported that the full `scripts/twilio/verify.py` command succeeded with credentials, TwiML App lookup, expected Voice URL, expected status callback URL, phone routing, Gather fallback availability, and overall status true. The user then asked to finish everything in Phase 0.5.
+
+### Response
+
+The assistant marked independent Twilio verification complete, chose Gather fallback as the explicit Phase 0.5 live-call path while deferring ConversationRelay enablement to Phase 4, added a local standard-library Twilio smoke webhook that returns Gather TwiML and records redacted inbound-call events, and documented the tunnel/call/restore workflow.
+
+The assistant also locally verified the smoke webhook: `/healthz` returned OK, the inbound voice endpoint returned Gather TwiML, the status endpoint returned 204, and logged Twilio fields were redacted. No `ngrok` or `cloudflared` CLI was available on PATH in the Codex environment, so the actual external inbound call remains the only live Phase 0.5 gate.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `docs/adr/0002-use-twilio-conversationrelay-with-gather-fallback.md`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/README.md`
+- `scripts/twilio/smoke_server.py`
+- `tests/test_twilio_scripts.py`
+- `PROMPTS.md`

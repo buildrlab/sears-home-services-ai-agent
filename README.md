@@ -110,6 +110,16 @@ python3.14 scripts/twilio/verify.py --credentials-only
 python3.14 scripts/twilio/setup.py --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --dry-run
 ```
 
+Phase 0.5 local call smoke test:
+
+```bash
+python3.14 scripts/twilio/smoke_server.py --port 8765
+```
+
+Expose that server with ngrok or cloudflared, point the TwiML App at the tunnel
+with `scripts/twilio/setup.py`, call the Twilio number, then restore the AWS URL.
+The smoke server returns Gather TwiML and records redacted inbound-call events.
+
 See [Twilio Access Runbook](docs/runbooks/twilio-access.md).
 
 ## Quality

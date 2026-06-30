@@ -12,6 +12,10 @@ The project requires a functioning inbound phone number and natural voice conver
 
 Use Twilio ConversationRelay as the primary voice integration. Implement Twilio Gather as a fallback path.
 
+For Phase 0.5 live-call verification, use the Gather fallback path through the
+local smoke webhook. ConversationRelay remains the primary Phase 4 integration,
+but Phase 0.5 should not block on account-level ConversationRelay enablement.
+
 ## Consequences
 
 - ConversationRelay handles low-latency speech-to-text, text-to-speech, turn-taking, and WebSocket messaging.
@@ -23,4 +27,3 @@ Use Twilio ConversationRelay as the primary voice integration. Implement Twilio 
 
 - Raw Twilio Media Streams: more control, but significantly more audio infrastructure and latency risk.
 - Amazon Connect: more AWS-native, but slower to configure for a take-home and less aligned with fast reviewer testing.
-

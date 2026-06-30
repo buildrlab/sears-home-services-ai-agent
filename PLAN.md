@@ -67,7 +67,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed from the user's local environment. Billing/number access, AI/ML addendum status, ConversationRelay status, TwiML App setup, phone-number association, and live phone routing are still unverified. | Confirm billing/trial status, assign or purchase a voice-capable number, confirm ConversationRelay status or choose Gather fallback, then run `python3.14 scripts/twilio/list_numbers.py`, `python3.14 scripts/twilio/setup.py`, and `python3.14 scripts/twilio/verify.py --phone-number "$TWILIO_PHONE_NUMBER"`. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
+| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, and Gather fallback is the explicit Phase 0.5 live-call path. Billing/trial status and a real inbound call through the smoke webhook are still unverified. | Run `scripts/twilio/smoke_server.py`, point Twilio at a secure tunnel, place a real inbound call, verify the smoke webhook records the call, then restore the AWS webhook URL. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
 | Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
@@ -141,13 +141,14 @@ Deliverables:
 
 - Confirm Twilio account access.
 - Confirm billing/trial status is sufficient for a live voice-capable phone number.
-- Accept Twilio Predictive and Generative AI/ML Features Addendum if ConversationRelay is required.
-- Confirm whether ConversationRelay is enabled on the account.
+- Explicitly choose Gather fallback for Phase 0.5 if ConversationRelay access is not already confirmed.
+- Defer Twilio Predictive and Generative AI/ML Features Addendum acceptance and ConversationRelay enablement confirmation to Phase 4 if Gather is used for Phase 0.5.
 - Purchase or reserve a voice-capable phone number.
 - Create a TwiML App for the SHS agent.
 - Create least-privilege Twilio API credentials for automation.
 - Store Twilio credentials only in GitHub Actions secrets or local uncommitted `.env` files.
 - Add local setup instructions for ngrok/cloudflared tunneling.
+- Add a local smoke webhook for inbound-call verification before the backend exists.
 - Implement idempotent Twilio setup scripts under `scripts/twilio/` for resources the API can safely manage.
 - Use the setup script to create/update the TwiML App Voice URL and record required SIDs.
 - Keep account onboarding, billing, regulatory requirements, AI/ML addendum acceptance, and ConversationRelay enablement as explicit manual prerequisites.
@@ -167,20 +168,27 @@ Implementation status:
 - [x] Script-only Twilio ADR recorded.
 - [x] `scripts/twilio/README.md` is the script catalog.
 - [x] `scripts/twilio/_client.py` provides a small Twilio REST wrapper for setup scripts.
-- [x] `scripts/twilio/setup.py` validates credentials, finds/creates/updates the TwiML App, supports `--dry-run`, and can attach an existing Twilio phone number to the TwiML App.
-- [x] `scripts/twilio/verify.py` validates credentials and checks the TwiML App and optional phone-number routing without mutating Twilio.
+- [x] `scripts/twilio/setup.py` validates credentials, finds/creates/updates the TwiML App, supports `--dry-run`, normalizes formatted phone input to E.164, and can attach an existing Twilio phone number to the TwiML App.
+- [x] `scripts/twilio/verify.py` validates credentials, expected webhook URLs, TwiML App state, and optional phone-number routing without mutating Twilio.
 - [x] `scripts/twilio/list_numbers.py` lists available voice-capable local numbers without purchasing them.
+- [x] `scripts/twilio/smoke_server.py` provides a local Gather-based inbound-call webhook for Phase 0.5 live-call verification.
 - [x] Script unit tests cover request construction, redaction, validation, CLI help, and dry-run behavior.
 - [x] Scripts CI compiles scripts, runs unit tests, and runs Ruff.
 - [x] Twilio account access verified with real credentials.
 - [ ] Billing/trial status confirmed for live voice testing.
-- [ ] Voice-capable phone number assigned or purchased.
-- [ ] AI/ML addendum accepted if ConversationRelay remains the primary path.
-- [ ] ConversationRelay enabled, or Gather fallback explicitly marked as the live-call path.
-- [ ] TwiML App and phone-number association verified against real Twilio resources.
+- [x] Voice-capable phone number assigned or purchased.
+- [x] AI/ML addendum and ConversationRelay enablement are deferred to Phase 4, not Phase 0.5.
+- [x] Gather fallback explicitly marked as the Phase 0.5 live-call path.
+- [x] TwiML App created and phone-number association applied against real Twilio resources.
+- [x] Independent `verify.py` check confirms the TwiML App webhook URLs and phone-number routing.
+- [ ] Real inbound call reaches the Phase 0.5 smoke webhook and records the expected events.
 
 Latest live check:
 
+- 2026-06-30: Local smoke webhook was run on `127.0.0.1:8765`; `/healthz` returned OK, `POST /twilio/voice/incoming` returned Gather TwiML, `POST /twilio/voice/status` returned 204, and logged call fields were redacted. No external tunnel CLI was available in the Codex environment, so the real phone-call gate still requires ngrok or cloudflared.
+- 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --friendly-name "SHS AI Agent" --phone-number "[redacted E.164]" --expected-voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --expected-status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status"`; credential validation passed, the TwiML App was found, Voice URL and status callback URL matched, phone routing was `True`, ConversationRelay remained unknown, Gather fallback remained available, and overall status was `True`.
+- 2026-06-30: User ran `python3.14 scripts/twilio/setup.py --friendly-name "SHS AI Agent" --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" --phone-number "[redacted E.164]"`; credential validation passed, the TwiML App action was `created`, and the selected phone resource action was `attached`.
+- 2026-06-30: User ran `python3.14 scripts/twilio/setup.py --friendly-name "SHS AI Agent" --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" --phone-number "[redacted E.164]" --dry-run`; credential validation passed, the TwiML App action was `would_create`, and the selected phone resource action was `would_attach_after_app_create`. This confirms the selected number exists in Twilio and setup planning works, but it does not yet create the TwiML App or attach the number.
 - 2026-06-30: User ran `python3.14 scripts/twilio/list_numbers.py --country US --limit 5`; Twilio returned 5 available US voice-capable local numbers with `address=none`. No number has been purchased or assigned yet.
 - 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --credentials-only`; credential validation passed, TwiML App and phone-number checks were skipped, ConversationRelay remains unknown, and Gather fallback remains available.
 - 2026-06-30: `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. No Twilio account facts were verified.
@@ -189,7 +197,7 @@ Core checks:
 
 - Twilio API credential can authenticate without exposing secrets.
 - A Twilio number can reach a temporary local webhook through a secure tunnel.
-- ConversationRelay availability is confirmed, or Gather fallback is marked as the guaranteed implementation path.
+- Gather fallback is marked as the guaranteed Phase 0.5 implementation path.
 - Required Twilio values are documented as environment variables.
 - Twilio setup script can run repeatedly without duplicating resources or leaking secrets.
 

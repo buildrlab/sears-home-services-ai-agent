@@ -307,7 +307,7 @@ def _resolve_phone_number(
     application_sid: str | None,
     dry_run: bool,
 ) -> dict[str, Any]:
-    if not application_sid:
+    if not application_sid and not dry_run:
         raise TwilioScriptError("Cannot attach a phone number without a TwiML App SID.")
 
     matches = client.list_incoming_phone_numbers(phone_number=phone_number)
@@ -325,6 +325,16 @@ def _resolve_phone_number(
         raise TwilioScriptError("Twilio phone-number response did not include a SID.")
 
     current_application_sid = phone.get("voice_application_sid") or None
+    if not application_sid:
+        return {
+            "requested": phone_number,
+            "action": "would_attach_after_app_create",
+            "sid": phone_sid,
+            "sid_redacted": redact_sid(phone_sid),
+            "voice_application_sid": "(new TwiML App SID)",
+            "previous_voice_application_sid": current_application_sid,
+        }
+
     if current_application_sid == application_sid:
         return {
             "requested": phone_number,

@@ -20,6 +20,7 @@ ACCOUNT_SID_RE = re.compile(r"^AC[0-9a-fA-F]{32}$")
 APPLICATION_SID_RE = re.compile(r"^AP[0-9a-fA-F]{32}$")
 PHONE_NUMBER_SID_RE = re.compile(r"^PN[0-9a-fA-F]{32}$")
 E164_RE = re.compile(r"^\+[1-9][0-9]{1,14}$")
+PHONE_FORMATTING_RE = re.compile(r"[\s().-]+")
 
 Transport = Callable[
     [str, str, dict[str, str], bytes | None],
@@ -108,11 +109,12 @@ def validate_https_url(value: str, *, label: str) -> str:
 
 
 def validate_e164(value: str, *, label: str = "phone number") -> str:
-    if not E164_RE.fullmatch(value):
+    normalized = PHONE_FORMATTING_RE.sub("", value.strip())
+    if not E164_RE.fullmatch(normalized):
         raise TwilioScriptError(
             f"{label} must be in E.164 format, for example +14155551234."
         )
-    return value
+    return normalized
 
 
 def validate_application_sid(value: str, *, label: str = "application SID") -> str:

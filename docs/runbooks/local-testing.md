@@ -50,6 +50,20 @@ PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests
 ruff check scripts tests
 ```
 
+## Twilio Local Call Smoke Test
+
+Before the backend exists, use the standard-library smoke webhook to validate
+Twilio routing through a secure tunnel:
+
+```bash
+python3.14 scripts/twilio/smoke_server.py --port 8765
+```
+
+Then expose `http://127.0.0.1:8765` with ngrok or cloudflared, point the TwiML
+App at the tunnel with `scripts/twilio/setup.py`, call the selected Twilio
+number, and confirm the smoke server records `voice_incoming`,
+`gather_response`, and `status_callback`.
+
 ## Frontend Checks
 
 After frontend dependencies are added:
