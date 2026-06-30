@@ -68,8 +68,8 @@ Keep this table current after every phase or meaningful planning change.
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
 | Phase 0.5: Twilio Access and Provisioning | Complete | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, Gather fallback is the explicit Phase 0.5 live-call path, a real inbound call reached the smoke webhook, and the user reported Twilio was restored after the smoke test. | Keep ConversationRelay addendum/enablement as a Phase 4 gate. |
-| Phase 1: Backend Foundation | Next | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
-| Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
+| Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as Phase 2 expands the scheduling schema and transactional booking behavior. |
+| Phase 2: Scheduling Domain | Next | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
 | Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
 | Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
@@ -236,6 +236,29 @@ Exit criteria:
 - Backend runs locally.
 - Migrations apply from empty DB.
 - Tests and Ruff checks pass.
+
+Implementation status:
+
+- [x] FastAPI application structure and app factory.
+- [x] `/healthz` endpoint verified through a local Uvicorn run.
+- [x] Settings/configuration layer with `DATABASE_URL` and `SHS_DATABASE_URL` aliases.
+- [x] SQLAlchemy models for technicians, service areas, specialties, and availability windows.
+- [x] Alembic migration setup with an initial migration from an empty database.
+- [x] Deterministic seed data for 6 technicians across ZIP codes, appliance specialties, and availability.
+- [x] Repository layer with active technician listing and ZIP/appliance matching.
+- [x] Pytest coverage for health, settings, migrations, seed idempotence, and repository queries.
+- [x] Ruff linting passes.
+- [x] Dependency audit passes with no known third-party vulnerabilities.
+- [x] PostgreSQL 18 migration and seed verification completed against a temporary local container on port `55432`.
+
+Latest verification:
+
+- 2026-07-01: `python -W error -m pytest` passed with 9 tests and no warnings.
+- 2026-07-01: `ruff check .` passed for backend.
+- 2026-07-01: `pip-audit` reported no known vulnerabilities for third-party dependencies; the local editable backend package was skipped because it is not on PyPI.
+- 2026-07-01: Local Uvicorn served `GET /healthz` with `{"status":"ok","service":"shs-ai-agent-backend","environment":"local"}`.
+- 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty to `head`; seed inserted or verified 6 active technicians.
+- 2026-07-01: PostgreSQL 19 was not adopted because official PostgreSQL 19 is beta-only, not GA; PostgreSQL 18 remains the newest stable supported major.
 
 ## Phase 2: Scheduling Domain
 

@@ -33,4 +33,6 @@ jobs:
       - name: Ruff lint
         run: ruff check .
       - name: Pytest
-        run: pytest
+        run: python -W error -m pytest
+      - name: Dependency audit
+        run: pip-audit

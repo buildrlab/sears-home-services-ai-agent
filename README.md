@@ -57,8 +57,11 @@ Run backend checks:
 ```bash
 cd backend
 python3.14 -m pip install -e ".[dev]"
+python -W error -m pytest
 ruff check .
-pytest
+alembic upgrade head
+python -m app.seed
+uvicorn app.main:app --reload --port 8000
 ```
 
 Run frontend checks after frontend dependencies are installed:
