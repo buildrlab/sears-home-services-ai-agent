@@ -15,9 +15,9 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - AWS region: `us-east-1`
 - Integration branch: `dev`
 - Release branch: `main`
-- Backend: Python, FastAPI, SQLAlchemy 2.0, Alembic
-- Frontend: React, Vite, TypeScript, Tailwind CSS v4
-- Database: PostgreSQL locally, Aurora Serverless v2 PostgreSQL on AWS
+- Backend: Python 3.14 on AWS Lambda `python3.14` / Amazon Linux 2023, FastAPI, SQLAlchemy 2.0, Alembic
+- Frontend: React 19, Vite 8, TypeScript 6, Tailwind CSS 4
+- Database: PostgreSQL 18 locally, latest Aurora Serverless v2 PostgreSQL-compatible minor on AWS
 - Voice: Twilio ConversationRelay primary, Twilio Gather fallback
 - Twilio provisioning: script-only using the Twilio API; do not use Terraform for Twilio
 - AI: OpenAI Responses API, model configurable by environment
@@ -65,7 +65,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Next | Not started. | Provision Twilio access early, confirm ConversationRelay onboarding path, and build script-first setup for supported Twilio resources. |
+| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live account verification is blocked until Twilio credentials, billing/number access, AI/ML addendum status, and ConversationRelay status are confirmed. | Export Twilio credentials locally, confirm manual account gates, then run `python scripts/twilio/verify.py --credentials-only`, `python scripts/twilio/list_numbers.py`, and `python scripts/twilio/setup.py`. |
 | Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
@@ -159,6 +159,23 @@ Automation note:
 - Every Twilio script must be self-documenting with `--help`, dry-run support where it mutates external state, clear output, and a README entry.
 - This avoids storing Twilio state/secrets in Terraform state and avoids provider coverage gaps.
 - Twilio account onboarding, billing setup, phone-number regulatory requirements, and AI/ML addendum acceptance are expected to remain manual prerequisites.
+
+Implementation status:
+
+- [x] Script-only Twilio ADR recorded.
+- [x] `scripts/twilio/README.md` is the script catalog.
+- [x] `scripts/twilio/_client.py` provides a small Twilio REST wrapper for setup scripts.
+- [x] `scripts/twilio/setup.py` validates credentials, finds/creates/updates the TwiML App, supports `--dry-run`, and can attach an existing Twilio phone number to the TwiML App.
+- [x] `scripts/twilio/verify.py` validates credentials and checks the TwiML App and optional phone-number routing without mutating Twilio.
+- [x] `scripts/twilio/list_numbers.py` lists available voice-capable local numbers without purchasing them.
+- [x] Script unit tests cover request construction, redaction, validation, CLI help, and dry-run behavior.
+- [x] Scripts CI compiles scripts, runs unit tests, and runs Ruff.
+- [ ] Twilio account access verified with real credentials.
+- [ ] Billing/trial status confirmed for live voice testing.
+- [ ] Voice-capable phone number assigned or purchased.
+- [ ] AI/ML addendum accepted if ConversationRelay remains the primary path.
+- [ ] ConversationRelay enabled, or Gather fallback explicitly marked as the live-call path.
+- [ ] TwiML App and phone-number association verified against real Twilio resources.
 
 Core checks:
 

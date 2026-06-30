@@ -42,7 +42,7 @@ The local stack will run with Docker Compose and include:
 
 - Backend API.
 - Frontend app.
-- PostgreSQL.
+- PostgreSQL 18.
 - Local S3-compatible storage.
 - Mailpit for email testing.
 
@@ -56,7 +56,7 @@ Run backend checks:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
+python3.14 -m pip install -e ".[dev]"
 ruff check .
 pytest
 ```
@@ -99,6 +99,13 @@ See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remot
 Twilio should be provisioned early. ConversationRelay requires account onboarding and AI/ML addendum acceptance before it can be the primary voice path. If ConversationRelay is not enabled in time, Twilio Gather remains the guaranteed fallback path.
 
 All Twilio automation lives under `scripts/twilio/` and is script-managed, not Terraform-managed.
+
+Initial script checks:
+
+```bash
+python3.14 scripts/twilio/verify.py --credentials-only
+python3.14 scripts/twilio/setup.py --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --dry-run
+```
 
 See [Twilio Access Runbook](docs/runbooks/twilio-access.md).
 

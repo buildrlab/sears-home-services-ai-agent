@@ -22,10 +22,10 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-python@v6.3.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install backend tooling
         run: |
           python -m pip install --upgrade pip
@@ -34,4 +34,3 @@ jobs:
         run: ruff check .
       - name: Pytest
         run: pytest
-

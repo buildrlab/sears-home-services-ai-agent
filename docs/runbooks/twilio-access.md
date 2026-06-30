@@ -80,6 +80,52 @@ Expected manual prerequisites:
 - AI/ML addendum acceptance.
 - ConversationRelay product enablement if gated by account settings.
 
+## Script Commands
+
+All commands run from the repo root.
+
+Validate credentials only:
+
+```bash
+python3.14 scripts/twilio/verify.py --credentials-only
+```
+
+Search for available voice-capable local numbers:
+
+```bash
+python3.14 scripts/twilio/list_numbers.py --country US --area-code 212 --limit 10
+```
+
+Dry-run TwiML App setup:
+
+```bash
+python3.14 scripts/twilio/setup.py \
+  --friendly-name "SHS AI Agent" \
+  --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \
+  --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" \
+  --dry-run
+```
+
+Apply TwiML App setup and optionally attach an existing number:
+
+```bash
+export TWILIO_PHONE_NUMBER="+14155551234"
+
+python3.14 scripts/twilio/setup.py \
+  --friendly-name "SHS AI Agent" \
+  --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \
+  --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" \
+  --phone-number "$TWILIO_PHONE_NUMBER"
+```
+
+Verify expected resources after setup:
+
+```bash
+python3.14 scripts/twilio/verify.py \
+  --friendly-name "SHS AI Agent" \
+  --phone-number "$TWILIO_PHONE_NUMBER"
+```
+
 ## Setup Script Contract
 
 The script should be safe to run repeatedly.
@@ -99,7 +145,7 @@ Required behavior:
 Planned command shape:
 
 ```bash
-python scripts/twilio/setup.py \
+python3.14 scripts/twilio/setup.py \
   --friendly-name "SHS AI Agent" \
   --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" \
   --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status"
@@ -108,7 +154,7 @@ python scripts/twilio/setup.py \
 Every script in `scripts/twilio/` must support:
 
 ```bash
-python scripts/twilio/<script>.py --help
+python3.14 scripts/twilio/<script>.py --help
 ```
 
 ## Local Verification

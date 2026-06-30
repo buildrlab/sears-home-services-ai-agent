@@ -210,3 +210,109 @@ The assistant standardized the path to the correctly spelled `scripts/twilio/`, 
 - `docs/adr/0004-use-scripted-twilio-provisioning.md`
 - `scripts/twilio/README.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Phase 0.5 Implementation
+
+### Prompt
+
+The user said to go to Phase 0.5.
+
+### Response
+
+The assistant implemented the Phase 0.5 Twilio automation slice: a standard-library Twilio REST helper, idempotent setup script, verification script, available-number search script, unit tests, Scripts CI, and updated docs. Phase 0.5 is now marked blocked on real Twilio account access and manual account gates, not on missing repository automation.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/_client.py`
+- `scripts/twilio/setup.py`
+- `scripts/twilio/verify.py`
+- `scripts/twilio/list_numbers.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `.github/workflows/scripts-ci.yml`
+- `PROMPTS.md`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+
+## 2026-06-30 Python 3.14 Runtime Decision
+
+### Prompt
+
+The user asked to use latest versions of all technologies and specifically requested Python 3.14 if supported by AWS Lambda.
+
+### Response
+
+The assistant checked the current AWS Lambda runtime documentation and confirmed `python3.14` is a supported Lambda runtime on Amazon Linux 2023. The repository was updated to target Python 3.14 for backend packaging, GitHub Actions, local runbooks, and Twilio script checks. The previous local `python3` invocation was only the machine's default interpreter, not the intended project runtime.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `backend/pyproject.toml`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/README.md`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/scripts-ci.yml`
+- `pyproject.toml`
+- `PROMPTS.md`
+
+## 2026-06-30 Latest Version Policy
+
+### Prompt
+
+The user required the project to use the latest versions of GitHub Actions, React, Tailwind CSS, Python, PostgreSQL, and any other technology used, and asked to put that policy in `AGENTS.md`.
+
+### Response
+
+The assistant added a Version Currency Policy to `AGENTS.md`, verified current package and action versions from official registries or release APIs, and updated stale scaffold defaults. GitHub Actions now use the current latest action releases, Python remains pinned to Lambda-supported `python3.14`, local PostgreSQL moved to PostgreSQL 18, frontend build metadata moved to Node 26.4.0 and pnpm 11.9.0, and backend dependency baselines now use current latest minimum versions.
+
+### Files Changed
+
+- `AGENTS.md`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/frontend-ci.yml`
+- `.github/workflows/scripts-ci.yml`
+- `.github/workflows/security-ci.yml`
+- `.github/workflows/terraform-ci.yml`
+- `backend/pyproject.toml`
+- `frontend/package.json`
+- `docker-compose.yml`
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/local-testing.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `python3.14 --version`
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+- `/private/tmp/shs-ruff/bin/ruff check .`
+- `PIP_CACHE_DIR=/private/tmp/shs-pip-cache /private/tmp/shs-backend-venv/bin/python -m pip install -e ".[dev]"`
+- `/private/tmp/shs-backend-venv/bin/ruff check .`
+- `PYTHONDONTWRITEBYTECODE=1 /private/tmp/shs-backend-venv/bin/pytest`
+- `git diff --check`
+- `/private/tmp/shs-ruff/bin/ruff check scripts tests`
+
+## 2026-06-30 Push Phase 0.5 Changes
+
+### Prompt
+
+The user asked to push the changes.
+
+### Response
+
+The assistant prepared the current Phase 0.5 Twilio provisioning and latest-version policy changes for commit and push on `codex/phase-0.5-twilio-provisioning`.
+
+### Verification
+
+- `git status --short`
+- `git diff --stat`

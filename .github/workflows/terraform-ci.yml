@@ -34,7 +34,7 @@ jobs:
       run:
         working-directory: ${{ matrix.directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform fmt
         run: terraform fmt -check -recursive
@@ -42,4 +42,3 @@ jobs:
         run: terraform init -backend=false
       - name: Terraform validate
         run: terraform validate
-

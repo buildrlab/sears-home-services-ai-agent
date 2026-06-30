@@ -5,9 +5,9 @@ This runbook must stay simple and current. If a command changes, update this fil
 ## Prerequisites
 
 - Docker Desktop or compatible Docker runtime.
-- Python 3.12 or newer.
-- Node.js 24 or newer.
-- pnpm 10 or newer.
+- Python 3.14.
+- Node.js 26.4.0 or newer.
+- pnpm 11.9.0 or newer.
 - No production secrets in local files.
 
 ## Start Local Dependencies
@@ -28,7 +28,7 @@ Local services:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
+python3.14 -m pip install -e ".[dev]"
 ruff check .
 pytest
 ```
@@ -38,6 +38,16 @@ Phase 1 and later must also include:
 ```bash
 alembic upgrade head
 pytest tests
+```
+
+## Script Checks
+
+Twilio scripts do not call Twilio during local unit tests.
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests
+PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests
+ruff check scripts tests
 ```
 
 ## Frontend Checks
@@ -84,4 +94,3 @@ docker compose down -v
 ## Rule
 
 Do not move to the next implementation phase with failing tests, unresolved console errors, unexplained warnings, or stale instructions.
-

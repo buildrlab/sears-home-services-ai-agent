@@ -17,6 +17,41 @@ The reviewer will be checking code quality closely. Treat every change as produc
 - Keep local and AWS testing instructions current, simple, and copy-pasteable.
 - If a command in `README.md` or `docs/runbooks/` stops working, update the docs in the same change that fixes the code.
 
+## Version Currency Policy
+
+Use the latest stable, generally available version of every technology unless a deployment platform or security constraint makes that impossible. Do not copy old defaults from templates.
+
+- Before adding or upgrading a runtime, framework, GitHub Action, package, Docker image, Terraform provider, database engine, or CLI tool, verify the current latest stable version from the official source, package registry, or vendor documentation.
+- Latest means stable GA, not beta, RC, nightly, canary, or preview, unless an ADR explicitly accepts that risk.
+- If AWS Lambda, Aurora, GitHub Actions runners, browsers, or another platform does not support the absolute latest upstream version, use the newest version that platform supports and document the gap in `PLAN.md`, an ADR, or the relevant runbook.
+- Do not use end-of-life, deprecated, or maintenance-only major versions.
+- Prefer explicit current-version pins or current major action tags that Dependabot can update. Avoid unbounded stale pins and avoid `latest` Docker tags for durable app infrastructure.
+- If the latest version breaks the build, treat that as a blocker to investigate. If we intentionally step back to an older version, record why and add a revisit condition.
+- Dependabot must remain configured for weekly grouped updates against `dev`; do not leave dependency drift unreviewed.
+
+Current verified baseline as of 2026-06-30:
+
+- GitHub Actions: `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`.
+- Python: `python3.14` because it is the latest AWS Lambda-supported Python runtime.
+- PostgreSQL: PostgreSQL 18, using the newest Aurora PostgreSQL-compatible minor on AWS and PostgreSQL 18 locally.
+- Node.js: 26.4.0 for frontend builds.
+- pnpm: 11.9.0.
+- React: 19.2.7.
+- Tailwind CSS: 4.3.2.
+- Vite: 8.1.2.
+- TypeScript: 6.0.3.
+- FastAPI: 0.138.2.
+- SQLAlchemy: 2.0.51.
+- Alembic: 1.18.5.
+- psycopg: 3.3.4.
+- pydantic-settings: 2.14.2.
+- Uvicorn: 0.49.0.
+- pytest: 9.1.1.
+- pytest-cov: 7.1.0.
+- Ruff: 0.15.20.
+
+Refresh this baseline before installing frontend/backend dependencies, before each deployment phase, and before final submission.
+
 ## Architecture Decisions
 
 Large or durable architecture decisions must be recorded in `docs/adr/`.
