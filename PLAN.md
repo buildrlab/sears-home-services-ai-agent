@@ -19,6 +19,7 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - Frontend: React, Vite, TypeScript, Tailwind CSS v4
 - Database: PostgreSQL locally, Aurora Serverless v2 PostgreSQL on AWS
 - Voice: Twilio ConversationRelay primary, Twilio Gather fallback
+- Twilio provisioning: script-only using the Twilio API; do not use Terraform for Twilio
 - AI: OpenAI Responses API, model configurable by environment
 - Email: Amazon SES send-only, Mailpit locally
 - Storage: S3 for uploaded appliance images, local S3-compatible storage for development
@@ -47,6 +48,7 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
   docs/
     adr/
   scripts/
+    twilio/
   .github/
     workflows/
   AGENTS.md
@@ -55,6 +57,26 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
   README.md
   docker-compose.yml
 ```
+
+## Progress Tracker
+
+Keep this table current after every phase or meaningful planning change.
+
+| Phase | Status | Current outcome | Next action |
+| --- | --- | --- | --- |
+| Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
+| Phase 0.5: Twilio Access and Provisioning | Next | Not started. | Provision Twilio access early, confirm ConversationRelay onboarding path, and build script-first setup for supported Twilio resources. |
+| Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
+| Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
+| Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
+| Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
+| Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
+| Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
+| Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources and remote state. |
+| Phase 8: CI/CD and Remote Validation | Pending | Not started. | Run GitHub Actions deploys and remote tests against AWS. |
+| Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
+
+Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
 
 ## Quality Gates
 
@@ -108,6 +130,49 @@ Exit criteria:
 - CI files are present.
 - Prompt logging policy is documented.
 - Local and AWS testing instructions are documented and linked from the root README.
+
+## Phase 0.5: Twilio Access and Provisioning
+
+This phase must happen early so Twilio access does not block overnight implementation work.
+
+Deliverables:
+
+- Confirm Twilio account access.
+- Confirm billing/trial status is sufficient for a live voice-capable phone number.
+- Accept Twilio Predictive and Generative AI/ML Features Addendum if ConversationRelay is required.
+- Confirm whether ConversationRelay is enabled on the account.
+- Purchase or reserve a voice-capable phone number.
+- Create a TwiML App for the SHS agent.
+- Create least-privilege Twilio API credentials for automation.
+- Store Twilio credentials only in GitHub Actions secrets or local uncommitted `.env` files.
+- Add local setup instructions for ngrok/cloudflared tunneling.
+- Implement idempotent Twilio setup scripts under `scripts/twilio/` for resources the API can safely manage.
+- Use the setup script to create/update the TwiML App Voice URL and record required SIDs.
+- Keep account onboarding, billing, regulatory requirements, AI/ML addendum acceptance, and ConversationRelay enablement as explicit manual prerequisites.
+- Record the script-first provisioning decision in an ADR.
+
+Automation note:
+
+- AWS infrastructure must be Terraform-managed.
+- Twilio infrastructure and application configuration must be script-managed through the Twilio API, not Terraform.
+- `scripts/twilio/` is the source of truth for TwiML App setup, webhook URL updates, phone-number association, verification, and any future Twilio automation.
+- Every Twilio script must be self-documenting with `--help`, dry-run support where it mutates external state, clear output, and a README entry.
+- This avoids storing Twilio state/secrets in Terraform state and avoids provider coverage gaps.
+- Twilio account onboarding, billing setup, phone-number regulatory requirements, and AI/ML addendum acceptance are expected to remain manual prerequisites.
+
+Core checks:
+
+- Twilio API credential can authenticate without exposing secrets.
+- A Twilio number can reach a temporary local webhook through a secure tunnel.
+- ConversationRelay availability is confirmed, or Gather fallback is marked as the guaranteed implementation path.
+- Required Twilio values are documented as environment variables.
+- Twilio setup script can run repeatedly without duplicating resources or leaking secrets.
+
+Exit criteria:
+
+- We know exactly which Twilio steps are automated and which are manual.
+- A live Twilio number or confirmed provisioning path exists.
+- The implementation can proceed overnight without waiting on account setup decisions.
 
 ## Phase 1: Backend Foundation
 

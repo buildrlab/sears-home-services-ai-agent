@@ -94,6 +94,14 @@ AWS validation must run after deployment and include API smoke tests, frontend P
 
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 
+## Twilio Access
+
+Twilio should be provisioned early. ConversationRelay requires account onboarding and AI/ML addendum acceptance before it can be the primary voice path. If ConversationRelay is not enabled in time, Twilio Gather remains the guaranteed fallback path.
+
+All Twilio automation lives under `scripts/twilio/` and is script-managed, not Terraform-managed.
+
+See [Twilio Access Runbook](docs/runbooks/twilio-access.md).
+
 ## Quality
 
 This repo is built for code-review scrutiny. Security, maintainability, performance, cost control, and test coverage are release gates, not nice-to-have items.

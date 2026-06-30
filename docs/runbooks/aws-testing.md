@@ -13,6 +13,7 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
   - `api.shs.buildrlab.com`
   - `ws.shs.buildrlab.com`
 - Twilio phone number configured for the deployed voice webhook.
+- Twilio ConversationRelay enabled, or Gather fallback explicitly selected.
 - SES sender identity verified.
 - OpenAI API key stored in AWS Secrets Manager or GitHub Actions secrets.
 
@@ -99,4 +100,3 @@ Before submission:
 - Confirm CORS allows only expected origins.
 - Confirm dependency and security scans pass.
 - Confirm deployed resources are cost-conscious and unnecessary resources are removed.
-

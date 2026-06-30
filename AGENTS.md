@@ -64,6 +64,16 @@ AWS-facing phases must also include:
 - Image upload and vision-analysis verification.
 - CloudWatch/log review for errors after the test run.
 
+## Scripts
+
+- Twilio automation must live under `scripts/twilio/`.
+- Keep `scripts/twilio/README.md` current as the script catalog.
+- Every Twilio script must support `--help`.
+- Any Twilio script that mutates external state must support `--dry-run`.
+- Scripts must read secrets from environment variables or explicit secret-manager integrations, never from committed files.
+- Scripts must not print auth tokens, API key secrets, or private credentials.
+- Prefer idempotent scripts that can be safely rerun.
+
 ## Prompt and Response Log
 
 All human prompts and assistant responses related to this project must be appended to `PROMPTS.md`.

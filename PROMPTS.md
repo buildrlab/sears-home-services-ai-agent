@@ -138,3 +138,75 @@ The assistant added local and AWS testing runbooks, linked them from the root RE
 - `docs/runbooks/local-testing.md`
 - `docs/runbooks/aws-testing.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Plan Tracking and Twilio Provisioning
+
+### Prompt
+
+The user asked whether `PLAN.md` can track what is completed and what has to be done next, asked to add early steps to provision Twilio access so overnight work is not blocked, and asked whether Twilio can be set up in Terraform.
+
+### Response
+
+The assistant added a progress tracker to `PLAN.md`, inserted Phase 0.5 for Twilio access and provisioning, added a Twilio access runbook, linked it from the root README, and documented that Twilio can be partially Terraform-managed through the `twilio/twilio` provider where supported, while account onboarding, billing, regulatory requirements, and AI/ML addendum acceptance remain manual prerequisites.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/aws-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Scripted Twilio Provisioning Decision
+
+### Prompt
+
+The user asked whether it would be better to script the Twilio setup.
+
+### Response
+
+The assistant recommended script-first Twilio provisioning because account onboarding and AI/ML addendum acceptance remain manual, local tunnel URLs change often, and an idempotent Twilio API script is easier to debug than forcing Twilio into Terraform. The assistant updated the plan, Twilio runbook, and added an ADR for scripted Twilio provisioning.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `docs/adr/0004-use-scripted-twilio-provisioning.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Script-Only Decision
+
+### Prompt
+
+The user clarified that everything Twilio-related should be handled in a script and Terraform should be ignored for Twilio.
+
+### Response
+
+The assistant updated the plan, Twilio runbook, and ADR to remove Terraform ambiguity for Twilio. AWS remains Terraform-managed, but Twilio setup is now explicitly script-only through the Twilio API, with account onboarding, billing, regulatory requirements, AI/ML addendum acceptance, and ConversationRelay enablement documented as manual prerequisites.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `docs/adr/0004-use-scripted-twilio-provisioning.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Scripts Folder
+
+### Prompt
+
+The user clarified that the project may end up with many scripts and requested a self-documenting `scripts/twillio` folder.
+
+### Response
+
+The assistant standardized the path to the correctly spelled `scripts/twilio/`, added a self-documenting README, and updated project guidance so all Twilio automation must live there. The README defines required script behavior, environment variables, planned script catalog, examples, output contract, and manual prerequisites.
+
+### Files Changed
+
+- `PLAN.md`
+- `AGENTS.md`
+- `README.md`
+- `docs/runbooks/twilio-access.md`
+- `docs/adr/0004-use-scripted-twilio-provisioning.md`
+- `scripts/twilio/README.md`
+- `PROMPTS.md`
