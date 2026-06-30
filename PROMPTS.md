@@ -120,3 +120,21 @@ The assistant expanded `docs/adr/0001-use-postgresql-for-scheduling.md` from a s
 - `docs/adr/0001-use-postgresql-for-scheduling.md`
 - `PROMPTS.md`
 
+## 2026-06-30 Quality and Testing Instructions
+
+### Prompt
+
+The user emphasized that code quality and security are very important, that simple instructions for running and testing locally are vital, and that AWS testing instructions are important too.
+
+### Response
+
+The assistant added local and AWS testing runbooks, linked them from the root README, and updated `AGENTS.md` and `PLAN.md` so local instructions, AWS validation, code quality, security, performance, and cost checks are explicit acceptance criteria.
+
+### Files Changed
+
+- `README.md`
+- `AGENTS.md`
+- `PLAN.md`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/aws-testing.md`
+- `PROMPTS.md`

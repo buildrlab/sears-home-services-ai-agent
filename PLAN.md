@@ -69,8 +69,19 @@ Every phase must finish with:
 - Security/dependency scans.
 - Bug fix pass after every console error, test failure, or runtime exception.
 - `PROMPTS.md` updated with the prompt/response entry for the phase.
+- README/runbook instructions updated for any command, environment variable, or workflow touched by the phase.
 
 The target is zero known vulnerabilities at submission. This must be verified through current automated scans; it must not be asserted without evidence.
+
+AWS-deployed phases must also finish with:
+
+- Deployment through GitHub Actions and Terraform.
+- Remote smoke tests against the deployed API.
+- Playwright tests against the deployed frontend.
+- Twilio live-call verification.
+- SES email-link verification.
+- Uploaded image analysis verification.
+- CloudWatch/log review and bug fix pass.
 
 ## Phase 0: Repository and Governance Foundation
 
@@ -87,6 +98,8 @@ Deliverables:
 - GitHub Actions scaffolding for backend, frontend, Terraform, and security checks.
 - Dependabot configuration for weekly grouped updates targeting `dev`.
 - Initial ADRs for the durable architecture choices.
+- Local testing runbook.
+- AWS testing runbook.
 
 Exit criteria:
 
@@ -94,6 +107,7 @@ Exit criteria:
 - `main` and `dev` branches exist.
 - CI files are present.
 - Prompt logging policy is documented.
+- Local and AWS testing instructions are documented and linked from the root README.
 
 ## Phase 1: Backend Foundation
 
@@ -334,4 +348,3 @@ For each entry include:
 - Verification performed.
 
 Secrets must be redacted.
-

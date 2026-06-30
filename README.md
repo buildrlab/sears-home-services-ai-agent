@@ -46,7 +46,39 @@ The local stack will run with Docker Compose and include:
 - Local S3-compatible storage.
 - Mailpit for email testing.
 
-Detailed commands will be added as Phase 1 and Phase 6 are implemented.
+Start local dependencies:
+
+```bash
+docker compose up -d postgres mailpit minio
+```
+
+Run backend checks:
+
+```bash
+cd backend
+python -m pip install -e ".[dev]"
+ruff check .
+pytest
+```
+
+Run frontend checks after frontend dependencies are installed:
+
+```bash
+cd frontend
+pnpm install
+pnpm lint
+pnpm test
+pnpm build
+pnpm test:e2e
+```
+
+Stop local dependencies:
+
+```bash
+docker compose down
+```
+
+See [Local Testing Runbook](docs/runbooks/local-testing.md) for the full phase-by-phase local validation ladder.
 
 ## Deployment
 
@@ -58,7 +90,12 @@ Planned subdomains:
 - `api.shs.buildrlab.com`
 - `ws.shs.buildrlab.com`
 
+AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio call testing, SES upload-link testing, and image-analysis verification.
+
+See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
+
 ## Quality
 
-This repo is built for code-review scrutiny. See `AGENTS.md` for engineering, security, testing, and prompt logging requirements.
+This repo is built for code-review scrutiny. Security, maintainability, performance, cost control, and test coverage are release gates, not nice-to-have items.
 
+See `AGENTS.md` for engineering, security, testing, and prompt logging requirements.

@@ -14,6 +14,8 @@ The reviewer will be checking code quality closely. Treat every change as produc
 - When tests, browser console logs, linting, security scans, or local runs expose defects, fix them and rerun the failing checks.
 - Do not accept known flaky tests, ignored failures, or unexplained warnings as complete.
 - Do not claim zero vulnerabilities; claim zero known vulnerabilities only after current scans pass.
+- Keep local and AWS testing instructions current, simple, and copy-pasteable.
+- If a command in `README.md` or `docs/runbooks/` stops working, update the docs in the same change that fixes the code.
 
 ## Architecture Decisions
 
@@ -52,6 +54,16 @@ Every implementation phase must include:
 - Security and dependency scans.
 - Local smoke verification with `docker compose`.
 
+AWS-facing phases must also include:
+
+- Deployment through GitHub Actions and Terraform, not manual console drift.
+- Remote API smoke tests against `https://api.shs.buildrlab.com`.
+- Playwright tests against `https://shs.buildrlab.com`.
+- Twilio phone-call verification against the deployed webhook.
+- SES upload-link verification.
+- Image upload and vision-analysis verification.
+- CloudWatch/log review for errors after the test run.
+
 ## Prompt and Response Log
 
 All human prompts and assistant responses related to this project must be appended to `PROMPTS.md`.
@@ -72,4 +84,3 @@ Rules:
 - Do not merge dependency updates unless base branch, mergeability, and required checks are verified.
 - Do not auto-commit unrelated local changes.
 - All deploys to AWS must run through Terraform and GitHub Actions.
-
