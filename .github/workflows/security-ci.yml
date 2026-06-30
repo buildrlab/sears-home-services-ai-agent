@@ -14,7 +14,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
       - name: Secret scan placeholder
         run: |
           echo "Secret scanning tool will be wired during Phase 0 hardening."
@@ -22,8 +22,7 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.0
       - name: Dependency audit placeholder
         run: |
           echo "Backend and frontend dependency audits will be enforced once lockfiles exist."
-

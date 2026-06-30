@@ -9,15 +9,17 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - Organization: `buildrlab`
 - Repository: `sears-home-services-ai-agent`
 - Domain: `buildrlab.com`
+- DNS account: `buildrlab-core` account `202612164956` owns the parent `buildrlab.com` hosted zone
+- DNS pattern: match BuildrLab `website` and `buildr-hq`; use a cross-account Route 53 delegation role/provider to create Sears records directly in the parent hosted zone, with no Sears child hosted zone
 - Frontend URL: `https://shs.buildrlab.com`
 - API URL: `https://api.shs.buildrlab.com`
 - Voice WebSocket URL: `wss://ws.shs.buildrlab.com/twilio/conversation`
 - AWS region: `us-east-1`
 - Integration branch: `dev`
 - Release branch: `main`
-- Backend: Python, FastAPI, SQLAlchemy 2.0, Alembic
-- Frontend: React, Vite, TypeScript, Tailwind CSS v4
-- Database: PostgreSQL locally, Aurora Serverless v2 PostgreSQL on AWS
+- Backend: Python 3.14 on AWS Lambda `python3.14` / Amazon Linux 2023, FastAPI, SQLAlchemy 2.0, Alembic
+- Frontend: React 19, Vite 8, TypeScript 6, Tailwind CSS 4
+- Database: PostgreSQL 18 locally, latest Aurora Serverless v2 PostgreSQL-compatible minor on AWS
 - Voice: Twilio ConversationRelay primary, Twilio Gather fallback
 - Twilio provisioning: script-only using the Twilio API; do not use Terraform for Twilio
 - AI: OpenAI Responses API, model configurable by environment
@@ -65,8 +67,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Next | Not started. | Provision Twilio access early, confirm ConversationRelay onboarding path, and build script-first setup for supported Twilio resources. |
-| Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
+| Phase 0.5: Twilio Access and Provisioning | Complete | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, Gather fallback is the explicit Phase 0.5 live-call path, a real inbound call reached the smoke webhook, and the user reported Twilio was restored after the smoke test. | Keep ConversationRelay addendum/enablement as a Phase 4 gate. |
+| Phase 1: Backend Foundation | Next | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
 | Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
@@ -139,13 +141,14 @@ Deliverables:
 
 - Confirm Twilio account access.
 - Confirm billing/trial status is sufficient for a live voice-capable phone number.
-- Accept Twilio Predictive and Generative AI/ML Features Addendum if ConversationRelay is required.
-- Confirm whether ConversationRelay is enabled on the account.
+- Explicitly choose Gather fallback for Phase 0.5 if ConversationRelay access is not already confirmed.
+- Defer Twilio Predictive and Generative AI/ML Features Addendum acceptance and ConversationRelay enablement confirmation to Phase 4 if Gather is used for Phase 0.5.
 - Purchase or reserve a voice-capable phone number.
 - Create a TwiML App for the SHS agent.
 - Create least-privilege Twilio API credentials for automation.
 - Store Twilio credentials only in GitHub Actions secrets or local uncommitted `.env` files.
 - Add local setup instructions for ngrok/cloudflared tunneling.
+- Add a local smoke webhook for inbound-call verification before the backend exists.
 - Implement idempotent Twilio setup scripts under `scripts/twilio/` for resources the API can safely manage.
 - Use the setup script to create/update the TwiML App Voice URL and record required SIDs.
 - Keep account onboarding, billing, regulatory requirements, AI/ML addendum acceptance, and ConversationRelay enablement as explicit manual prerequisites.
@@ -160,11 +163,43 @@ Automation note:
 - This avoids storing Twilio state/secrets in Terraform state and avoids provider coverage gaps.
 - Twilio account onboarding, billing setup, phone-number regulatory requirements, and AI/ML addendum acceptance are expected to remain manual prerequisites.
 
+Implementation status:
+
+- [x] Script-only Twilio ADR recorded.
+- [x] `scripts/twilio/README.md` is the script catalog.
+- [x] `scripts/twilio/_client.py` provides a small Twilio REST wrapper for setup scripts.
+- [x] `scripts/twilio/setup.py` validates credentials, finds/creates/updates the TwiML App, supports `--dry-run`, normalizes formatted phone input to E.164, and can attach an existing Twilio phone number to the TwiML App.
+- [x] `scripts/twilio/verify.py` validates credentials, expected webhook URLs, TwiML App state, and optional phone-number routing without mutating Twilio.
+- [x] `scripts/twilio/list_numbers.py` lists available voice-capable local numbers without purchasing them.
+- [x] `scripts/twilio/smoke_server.py` provides a local Gather-based inbound-call webhook for Phase 0.5 live-call verification.
+- [x] Script unit tests cover request construction, redaction, validation, CLI help, and dry-run behavior.
+- [x] Scripts CI compiles scripts, runs unit tests, and runs Ruff.
+- [x] Twilio account access verified with real credentials.
+- [x] Billing/trial status confirmed sufficient for live voice testing by a completed inbound call.
+- [x] Voice-capable phone number assigned or purchased.
+- [x] AI/ML addendum and ConversationRelay enablement are deferred to Phase 4, not Phase 0.5.
+- [x] Gather fallback explicitly marked as the Phase 0.5 live-call path.
+- [x] TwiML App created and phone-number association applied against real Twilio resources.
+- [x] Independent `verify.py` check confirms the TwiML App webhook URLs and phone-number routing.
+- [x] Real inbound call reaches the Phase 0.5 smoke webhook and records the expected events.
+
+Latest live check:
+
+- 2026-07-01: User reported Twilio was updated after the smoke test. Treat this as the restore confirmation for Phase 0.5; Codex could not independently verify the provider state because Twilio credentials are not loaded in the Codex shell.
+- 2026-07-01: User placed a real inbound Twilio call through the ngrok tunnel to the Phase 0.5 smoke webhook. The smoke server recorded `voice_incoming`, returned HTTP 200 from `/twilio/voice/incoming`, recorded `gather_response` with speech result `Test.`, returned HTTP 200 from `/twilio/voice/gather`, recorded `status_callback` with `CallStatus=completed` and `CallDuration=22`, and returned HTTP 204 from `/twilio/voice/status`. This confirms the live phone number, TwiML App routing, Gather fallback, tunnel, and local smoke webhook path.
+- 2026-06-30: Local smoke webhook was run on `127.0.0.1:8765`; `/healthz` returned OK, `POST /twilio/voice/incoming` returned Gather TwiML, `POST /twilio/voice/status` returned 204, and logged call fields were redacted. No external tunnel CLI was available in the Codex environment, so the real phone-call gate still requires ngrok or cloudflared.
+- 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --friendly-name "SHS AI Agent" --phone-number "[redacted E.164]" --expected-voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --expected-status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status"`; credential validation passed, the TwiML App was found, Voice URL and status callback URL matched, phone routing was `True`, ConversationRelay remained unknown, Gather fallback remained available, and overall status was `True`.
+- 2026-06-30: User ran `python3.14 scripts/twilio/setup.py --friendly-name "SHS AI Agent" --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" --phone-number "[redacted E.164]"`; credential validation passed, the TwiML App action was `created`, and the selected phone resource action was `attached`.
+- 2026-06-30: User ran `python3.14 scripts/twilio/setup.py --friendly-name "SHS AI Agent" --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" --phone-number "[redacted E.164]" --dry-run`; credential validation passed, the TwiML App action was `would_create`, and the selected phone resource action was `would_attach_after_app_create`. This confirms the selected number exists in Twilio and setup planning works, but it does not yet create the TwiML App or attach the number.
+- 2026-06-30: User ran `python3.14 scripts/twilio/list_numbers.py --country US --limit 5`; Twilio returned 5 available US voice-capable local numbers with `address=none`. No number has been purchased or assigned yet.
+- 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --credentials-only`; credential validation passed, TwiML App and phone-number checks were skipped, ConversationRelay remains unknown, and Gather fallback remains available.
+- 2026-06-30: `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. No Twilio account facts were verified.
+
 Core checks:
 
 - Twilio API credential can authenticate without exposing secrets.
 - A Twilio number can reach a temporary local webhook through a secure tunnel.
-- ConversationRelay availability is confirmed, or Gather fallback is marked as the guaranteed implementation path.
+- Gather fallback is marked as the guaranteed Phase 0.5 implementation path.
 - Required Twilio values are documented as environment variables.
 - Twilio setup script can run repeatedly without duplicating resources or leaking secrets.
 
@@ -337,7 +372,9 @@ Exit criteria:
 Deliverables:
 
 - Terraform bootstrap for S3 state bucket and locking strategy.
-- Shared infrastructure for DNS, IAM/OIDC, VPC, and common security groups.
+- Shared infrastructure for cross-account DNS, IAM/OIDC, VPC, and common security groups.
+- BuildrLab-style Route 53 delegation role/provider wiring for `buildrlab-core` account `202612164956`.
+- DNS records for `shs.buildrlab.com`, `api.shs.buildrlab.com`, and `ws.shs.buildrlab.com` created directly in the existing parent `buildrlab.com` hosted zone.
 - Backend infrastructure for API Gateway, Lambda, Aurora Serverless v2, RDS Proxy, S3, SQS, SES, Secrets Manager, CloudWatch.
 - Frontend infrastructure for S3 static hosting and CloudFront.
 - Environment variable and secret wiring.
@@ -352,6 +389,7 @@ Core tests:
 Exit criteria:
 
 - Terraform plans cleanly.
+- DNS plan matches `website`/`buildr-hq`: no Sears child hosted zone, direct parent-zone records via `aws.dns`.
 - AWS deployment path is documented.
 
 ## Phase 8: CI/CD and Remote Validation

@@ -42,7 +42,7 @@ The local stack will run with Docker Compose and include:
 
 - Backend API.
 - Frontend app.
-- PostgreSQL.
+- PostgreSQL 18.
 - Local S3-compatible storage.
 - Mailpit for email testing.
 
@@ -56,7 +56,7 @@ Run backend checks:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
+python3.14 -m pip install -e ".[dev]"
 ruff check .
 pytest
 ```
@@ -90,15 +90,35 @@ Planned subdomains:
 - `api.shs.buildrlab.com`
 - `ws.shs.buildrlab.com`
 
+DNS follows the existing BuildrLab `website` and `buildr-hq` pattern. The parent `buildrlab.com` hosted zone lives in `buildrlab-core` account `202612164956`; Sears Terraform will use a cross-account Route 53 delegation role/provider to create records directly in that hosted zone. It should not create a separate `shs.buildrlab.com` child hosted zone.
+
 AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio call testing, SES upload-link testing, and image-analysis verification.
 
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
+See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.
 
 ## Twilio Access
 
 Twilio should be provisioned early. ConversationRelay requires account onboarding and AI/ML addendum acceptance before it can be the primary voice path. If ConversationRelay is not enabled in time, Twilio Gather remains the guaranteed fallback path.
 
 All Twilio automation lives under `scripts/twilio/` and is script-managed, not Terraform-managed.
+
+Initial script checks:
+
+```bash
+python3.14 scripts/twilio/verify.py --credentials-only
+python3.14 scripts/twilio/setup.py --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --dry-run
+```
+
+Phase 0.5 local call smoke test:
+
+```bash
+python3.14 scripts/twilio/smoke_server.py --port 8765
+```
+
+Expose that server with ngrok or cloudflared, point the TwiML App at the tunnel
+with `scripts/twilio/setup.py`, call the Twilio number, then restore the AWS URL.
+The smoke server returns Gather TwiML and records redacted inbound-call events.
 
 See [Twilio Access Runbook](docs/runbooks/twilio-access.md).
 

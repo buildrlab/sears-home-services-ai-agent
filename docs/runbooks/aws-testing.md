@@ -8,10 +8,16 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 - Terraform state bootstrapped in S3.
 - GitHub OIDC configured for deployments.
 - GitHub environments configured with required secrets.
-- Route53 or DNS records configured for:
+- BuildrLab core DNS access configured:
+  - DNS account: `buildrlab-core`
+  - DNS account ID: `202612164956`
+  - Parent hosted zone: `buildrlab.com`
+  - Cross-account DNS provider/role configured the same way as `website` and `buildr-hq`
+- Route 53 records configured directly in the parent `buildrlab.com` hosted zone for:
   - `shs.buildrlab.com`
   - `api.shs.buildrlab.com`
   - `ws.shs.buildrlab.com`
+- No child hosted zone exists for `shs.buildrlab.com` unless a later ADR changes the DNS model.
 - Twilio phone number configured for the deployed voice webhook.
 - Twilio ConversationRelay enabled, or Gather fallback explicitly selected.
 - SES sender identity verified.
@@ -22,8 +28,22 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 1. Open a pull request into `dev`.
 2. Confirm backend, frontend, Terraform, and security checks pass.
 3. Review the Terraform plan in GitHub Actions.
-4. Merge only after checks and plan are understood.
-5. Deploy through the approved GitHub Actions workflow.
+4. Confirm the DNS plan uses the cross-account `aws.dns` provider against the parent `buildrlab.com` hosted zone.
+5. Confirm the DNS plan does not create a Sears-owned `shs.buildrlab.com` hosted zone.
+6. Merge only after checks and plan are understood.
+7. Deploy through the approved GitHub Actions workflow.
+
+## DNS Verification
+
+Before API and frontend smoke tests:
+
+```bash
+dig +short shs.buildrlab.com
+dig +short api.shs.buildrlab.com
+dig +short ws.shs.buildrlab.com
+```
+
+See [DNS Delegation Runbook](dns-delegation.md).
 
 ## Remote Smoke Tests
 

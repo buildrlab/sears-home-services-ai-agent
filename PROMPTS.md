@@ -210,3 +210,294 @@ The assistant standardized the path to the correctly spelled `scripts/twilio/`, 
 - `docs/adr/0004-use-scripted-twilio-provisioning.md`
 - `scripts/twilio/README.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Phase 0.5 Implementation
+
+### Prompt
+
+The user said to go to Phase 0.5.
+
+### Response
+
+The assistant implemented the Phase 0.5 Twilio automation slice: a standard-library Twilio REST helper, idempotent setup script, verification script, available-number search script, unit tests, Scripts CI, and updated docs. Phase 0.5 is now marked blocked on real Twilio account access and manual account gates, not on missing repository automation.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/_client.py`
+- `scripts/twilio/setup.py`
+- `scripts/twilio/verify.py`
+- `scripts/twilio/list_numbers.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `.github/workflows/scripts-ci.yml`
+- `PROMPTS.md`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+
+## 2026-06-30 Python 3.14 Runtime Decision
+
+### Prompt
+
+The user asked to use latest versions of all technologies and specifically requested Python 3.14 if supported by AWS Lambda.
+
+### Response
+
+The assistant checked the current AWS Lambda runtime documentation and confirmed `python3.14` is a supported Lambda runtime on Amazon Linux 2023. The repository was updated to target Python 3.14 for backend packaging, GitHub Actions, local runbooks, and Twilio script checks. The previous local `python3` invocation was only the machine's default interpreter, not the intended project runtime.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `backend/pyproject.toml`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/README.md`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/scripts-ci.yml`
+- `pyproject.toml`
+- `PROMPTS.md`
+
+## 2026-06-30 Latest Version Policy
+
+### Prompt
+
+The user required the project to use the latest versions of GitHub Actions, React, Tailwind CSS, Python, PostgreSQL, and any other technology used, and asked to put that policy in `AGENTS.md`.
+
+### Response
+
+The assistant added a Version Currency Policy to `AGENTS.md`, verified current package and action versions from official registries or release APIs, and updated stale scaffold defaults. GitHub Actions now use the current latest action releases, Python remains pinned to Lambda-supported `python3.14`, local PostgreSQL moved to PostgreSQL 18, frontend build metadata moved to Node 26.4.0 and pnpm 11.9.0, and backend dependency baselines now use current latest minimum versions.
+
+### Files Changed
+
+- `AGENTS.md`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/frontend-ci.yml`
+- `.github/workflows/scripts-ci.yml`
+- `.github/workflows/security-ci.yml`
+- `.github/workflows/terraform-ci.yml`
+- `backend/pyproject.toml`
+- `frontend/package.json`
+- `docker-compose.yml`
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/local-testing.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `python3.14 --version`
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+- `/private/tmp/shs-ruff/bin/ruff check .`
+- `PIP_CACHE_DIR=/private/tmp/shs-pip-cache /private/tmp/shs-backend-venv/bin/python -m pip install -e ".[dev]"`
+- `/private/tmp/shs-backend-venv/bin/ruff check .`
+- `PYTHONDONTWRITEBYTECODE=1 /private/tmp/shs-backend-venv/bin/pytest`
+- `git diff --check`
+- `/private/tmp/shs-ruff/bin/ruff check scripts tests`
+
+## 2026-06-30 Push Phase 0.5 Changes
+
+### Prompt
+
+The user asked to push the changes.
+
+### Response
+
+The assistant prepared the current Phase 0.5 Twilio provisioning and latest-version policy changes for commit and push on `codex/phase-0.5-twilio-provisioning`.
+
+### Verification
+
+- `git status --short`
+- `git diff --stat`
+
+## 2026-06-30 BuildrLab DNS Pattern
+
+### Prompt
+
+The user noted that `buildrlab.com` DNS lives in the `buildrlab-core` AWS account `202612164956`, then clarified that the DNS should be set up like the existing `buildr-hq` or `website` project.
+
+### Response
+
+The assistant inspected the BuildrLab `devops`, `website`, and `buildr-hq` infrastructure. The reference pattern uses `dns_account_id = "202612164956"`, `dns_sso_profile = "buildrlab-core"`, a Route 53 delegation role in the DNS account, and an `aws.dns` provider alias to create records directly in the existing parent `buildrlab.com` hosted zone. The assistant documented that Sears should follow this same pattern and should not create a separate `shs.buildrlab.com` child hosted zone.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `AGENTS.md`
+- `infra/README.md`
+- `infra/shared/README.md`
+- `docs/runbooks/aws-testing.md`
+- `docs/runbooks/dns-delegation.md`
+- `docs/adr/0005-use-buildrlab-cross-account-dns-pattern.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Commit and Push Workflow
+
+### Prompt
+
+The user said to always commit and push changes and to start making progress on the project.
+
+### Response
+
+The assistant recorded the commit-and-push workflow rule in `AGENTS.md`, committed and pushed the DNS documentation update, and then moved on to the next implementation slice.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Live Completion Gate
+
+### Prompt
+
+The user said to make sure everything is live-complete before moving on.
+
+### Response
+
+The assistant stopped Phase 1 startup and treated Phase 0.5 as the active gate. The safe Twilio credential check `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. The assistant updated the plan, Twilio runbook, and agent instructions to explicitly prevent phase advancement until live-completion gates pass or the user explicitly overrides the blocker.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `python3.14 scripts/twilio/verify.py --credentials-only`
+
+## 2026-06-30 Twilio Credential Verification Passed
+
+### Prompt
+
+The user reported the output of `python3.14 scripts/twilio/verify.py --credentials-only`. Twilio credential validation passed, TwiML App and phone-number checks were skipped, ConversationRelay status remained unknown, Gather fallback was available, and the overall result was true.
+
+### Response
+
+The assistant marked the Twilio account credential gate as passed while keeping Phase 0.5 blocked on the remaining live gates: billing/trial confirmation, voice-capable phone number assignment, ConversationRelay or Gather fallback decision, TwiML App setup, phone-number association, and a real inbound call.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Number Search Passed
+
+### Prompt
+
+The user reported the output of `python3.14 scripts/twilio/list_numbers.py --country US --limit 5`, which returned five available US voice-capable local numbers with no address requirement.
+
+### Response
+
+The assistant recorded that the Twilio number-search live check passed and identified the next live gate: choose and purchase or assign one voice-capable number in Twilio, then export `TWILIO_PHONE_NUMBER` and run the setup script.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Setup Dry-Run Dependency Fix
+
+### Prompt
+
+The user reported that `scripts/twilio/setup.py --phone-number "+1 737 355 9397" --dry-run` failed phone-number validation, and that rerunning with the normalized E.164 value failed with `Cannot attach a phone number without a TwiML App SID.` The user then reported a successful dry-run with the selected phone number redacted here: credential validation passed, TwiML App action was `would_create`, and phone action was `would_attach_after_app_create`.
+
+### Response
+
+The assistant identified the strict formatting behavior and a real dry-run planning bug. The Twilio client now normalizes common formatted phone numbers to E.164, and the setup script now supports dry-run planning when the TwiML App will be created before the phone-number association. Phase 0.5 remains blocked until the non-dry-run setup and verification pass against real Twilio resources.
+
+### Files Changed
+
+- `scripts/twilio/_client.py`
+- `scripts/twilio/setup.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Setup Applied
+
+### Prompt
+
+The user reported that the non-dry-run `scripts/twilio/setup.py` command succeeded with the selected phone number redacted here. Credential validation passed, the TwiML App action was `created`, and the phone-number action was `attached`.
+
+### Response
+
+The assistant treated this as evidence that Twilio provider-side setup succeeded while keeping Phase 0.5 blocked on independent `verify.py` confirmation, billing/trial status, ConversationRelay or Gather fallback decision, and a real inbound call when a webhook is available.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Twilio Verification Command
+
+### Prompt
+
+The user asked whether they need to run `verify.py`, then asked for the exact command.
+
+### Response
+
+The assistant explained that `verify.py` should be run because it independently reads Twilio state after setup and confirms the TwiML App plus phone association persisted. The assistant provided a verification command using the SHS TwiML App friendly name, the selected redacted phone number, and expected Voice URL/status callback URL assertions.
+
+### Files Changed
+
+- `scripts/twilio/verify.py`
+- `scripts/twilio/README.md`
+- `tests/test_twilio_scripts.py`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Finish Phase 0.5
+
+### Prompt
+
+The user reported that the full `scripts/twilio/verify.py` command succeeded with credentials, TwiML App lookup, expected Voice URL, expected status callback URL, phone routing, Gather fallback availability, and overall status true. The user then asked to finish everything in Phase 0.5.
+
+### Response
+
+The assistant marked independent Twilio verification complete, chose Gather fallback as the explicit Phase 0.5 live-call path while deferring ConversationRelay enablement to Phase 4, added a local standard-library Twilio smoke webhook that returns Gather TwiML and records redacted inbound-call events, and documented the tunnel/call/restore workflow.
+
+The assistant also locally verified the smoke webhook: `/healthz` returned OK, the inbound voice endpoint returned Gather TwiML, the status endpoint returned 204, and logged Twilio fields were redacted. No `ngrok` or `cloudflared` CLI was available on PATH in the Codex environment, so the actual external inbound call remains the only live Phase 0.5 gate.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `docs/adr/0002-use-twilio-conversationrelay-with-gather-fallback.md`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+- `scripts/twilio/README.md`
+- `scripts/twilio/smoke_server.py`
+- `tests/test_twilio_scripts.py`
+- `PROMPTS.md`
+
+## 2026-07-01 Phase 0.5 Live Call Complete
+
+### Prompt
+
+The user pasted the live Twilio smoke webhook output showing `voice_incoming`, `gather_response` with speech result `Test.`, and `status_callback` with completed call status. The user then said Twilio had been updated and asked to proceed.
+
+### Response
+
+The assistant marked Phase 0.5 complete, recorded the live-call evidence, treated the user's follow-up as the Twilio restore confirmation, and noted that Codex could not independently verify restored provider state because Twilio credentials are not loaded in the Codex shell. Phase 1 became the next implementation phase.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`

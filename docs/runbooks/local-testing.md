@@ -5,9 +5,9 @@ This runbook must stay simple and current. If a command changes, update this fil
 ## Prerequisites
 
 - Docker Desktop or compatible Docker runtime.
-- Python 3.12 or newer.
-- Node.js 24 or newer.
-- pnpm 10 or newer.
+- Python 3.14.
+- Node.js 26.4.0 or newer.
+- pnpm 11.9.0 or newer.
 - No production secrets in local files.
 
 ## Start Local Dependencies
@@ -28,7 +28,7 @@ Local services:
 
 ```bash
 cd backend
-python -m pip install -e ".[dev]"
+python3.14 -m pip install -e ".[dev]"
 ruff check .
 pytest
 ```
@@ -39,6 +39,30 @@ Phase 1 and later must also include:
 alembic upgrade head
 pytest tests
 ```
+
+## Script Checks
+
+Twilio scripts do not call Twilio during local unit tests.
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests
+PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests
+ruff check scripts tests
+```
+
+## Twilio Local Call Smoke Test
+
+Before the backend exists, use the standard-library smoke webhook to validate
+Twilio routing through a secure tunnel:
+
+```bash
+python3.14 scripts/twilio/smoke_server.py --port 8765
+```
+
+Then expose `http://127.0.0.1:8765` with ngrok or cloudflared, point the TwiML
+App at the tunnel with `scripts/twilio/setup.py`, call the selected Twilio
+number, and confirm the smoke server records `voice_incoming`,
+`gather_response`, and `status_callback`.
 
 ## Frontend Checks
 
@@ -84,4 +108,3 @@ docker compose down -v
 ## Rule
 
 Do not move to the next implementation phase with failing tests, unresolved console errors, unexplained warnings, or stale instructions.
-
