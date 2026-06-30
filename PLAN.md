@@ -9,6 +9,8 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - Organization: `buildrlab`
 - Repository: `sears-home-services-ai-agent`
 - Domain: `buildrlab.com`
+- DNS account: `buildrlab-core` account `202612164956` owns the parent `buildrlab.com` hosted zone
+- DNS pattern: match BuildrLab `website` and `buildr-hq`; use a cross-account Route 53 delegation role/provider to create Sears records directly in the parent hosted zone, with no Sears child hosted zone
 - Frontend URL: `https://shs.buildrlab.com`
 - API URL: `https://api.shs.buildrlab.com`
 - Voice WebSocket URL: `wss://ws.shs.buildrlab.com/twilio/conversation`
@@ -354,7 +356,9 @@ Exit criteria:
 Deliverables:
 
 - Terraform bootstrap for S3 state bucket and locking strategy.
-- Shared infrastructure for DNS, IAM/OIDC, VPC, and common security groups.
+- Shared infrastructure for cross-account DNS, IAM/OIDC, VPC, and common security groups.
+- BuildrLab-style Route 53 delegation role/provider wiring for `buildrlab-core` account `202612164956`.
+- DNS records for `shs.buildrlab.com`, `api.shs.buildrlab.com`, and `ws.shs.buildrlab.com` created directly in the existing parent `buildrlab.com` hosted zone.
 - Backend infrastructure for API Gateway, Lambda, Aurora Serverless v2, RDS Proxy, S3, SQS, SES, Secrets Manager, CloudWatch.
 - Frontend infrastructure for S3 static hosting and CloudFront.
 - Environment variable and secret wiring.
@@ -369,6 +373,7 @@ Core tests:
 Exit criteria:
 
 - Terraform plans cleanly.
+- DNS plan matches `website`/`buildr-hq`: no Sears child hosted zone, direct parent-zone records via `aws.dns`.
 - AWS deployment path is documented.
 
 ## Phase 8: CI/CD and Remote Validation

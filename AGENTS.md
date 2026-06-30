@@ -73,6 +73,7 @@ ADRs should include context, decision, consequences, alternatives considered, an
 - Validate Twilio webhook and WebSocket handshake signatures with the official Twilio SDK.
 - Store production secrets in AWS Secrets Manager or GitHub Actions secrets, never in repository files.
 - Use Terraform for all AWS infrastructure. Terraform remote state must be managed in S3.
+- Match the existing BuildrLab `website` and `buildr-hq` DNS pattern: `buildrlab-core` account `202612164956` owns the `buildrlab.com` hosted zone, and Sears Terraform must use a cross-account Route 53 delegation role/provider to create records directly in that zone. Do not create a Sears child hosted zone unless a later ADR changes this.
 - Keep AWS resources cost-conscious: serverless where appropriate, lifecycle rules for S3, small Lambda memory until measured, and no always-on services unless justified.
 - Measure or document performance-critical paths, especially call latency, upload processing, and scheduling transactions.
 
@@ -126,6 +127,7 @@ Rules:
 - `dev` is the integration branch.
 - `main` is release-only.
 - Dependabot updates target `dev`.
+- Commit and push every coherent completed change set before moving to the next implementation slice.
 - Do not merge dependency updates unless base branch, mergeability, and required checks are verified.
 - Do not auto-commit unrelated local changes.
 - All deploys to AWS must run through Terraform and GitHub Actions.

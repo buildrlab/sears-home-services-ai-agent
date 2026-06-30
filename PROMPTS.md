@@ -316,3 +316,40 @@ The assistant prepared the current Phase 0.5 Twilio provisioning and latest-vers
 
 - `git status --short`
 - `git diff --stat`
+
+## 2026-06-30 BuildrLab DNS Pattern
+
+### Prompt
+
+The user noted that `buildrlab.com` DNS lives in the `buildrlab-core` AWS account `202612164956`, then clarified that the DNS should be set up like the existing `buildr-hq` or `website` project.
+
+### Response
+
+The assistant inspected the BuildrLab `devops`, `website`, and `buildr-hq` infrastructure. The reference pattern uses `dns_account_id = "202612164956"`, `dns_sso_profile = "buildrlab-core"`, a Route 53 delegation role in the DNS account, and an `aws.dns` provider alias to create records directly in the existing parent `buildrlab.com` hosted zone. The assistant documented that Sears should follow this same pattern and should not create a separate `shs.buildrlab.com` child hosted zone.
+
+### Files Changed
+
+- `PLAN.md`
+- `README.md`
+- `AGENTS.md`
+- `infra/README.md`
+- `infra/shared/README.md`
+- `docs/runbooks/aws-testing.md`
+- `docs/runbooks/dns-delegation.md`
+- `docs/adr/0005-use-buildrlab-cross-account-dns-pattern.md`
+- `PROMPTS.md`
+
+## 2026-06-30 Commit and Push Workflow
+
+### Prompt
+
+The user said to always commit and push changes and to start making progress on the project.
+
+### Response
+
+The assistant recorded the commit-and-push workflow rule in `AGENTS.md`, committed and pushed the DNS documentation update, and then moved on to the next implementation slice.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PROMPTS.md`
