@@ -169,6 +169,20 @@ After backend Twilio endpoints exist:
 6. Confirm ConversationRelay connects over WebSocket, or Gather fallback responds.
 7. Confirm a call session is created.
 
+## Live-Complete Gate
+
+Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are true:
+
+- `python3.14 scripts/twilio/verify.py --credentials-only` passes with real Twilio credentials.
+- Billing or trial status is confirmed sufficient for live voice testing.
+- A voice-capable Twilio phone number is assigned or purchased.
+- The TwiML App exists in Twilio and points to the current local tunnel or AWS webhook.
+- The selected Twilio number routes to that TwiML App.
+- ConversationRelay is enabled, or Gather fallback is explicitly chosen for the live path.
+- A real inbound call reaches the webhook and produces the expected response.
+
+Current blocker as of 2026-06-30: local credential verification fails because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` are not present in the environment.
+
 ## Completion Criteria
 
 - Twilio account access is confirmed.

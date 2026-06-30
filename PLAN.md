@@ -67,7 +67,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live account verification is blocked until Twilio credentials, billing/number access, AI/ML addendum status, and ConversationRelay status are confirmed. | Export Twilio credentials locally, confirm manual account gates, then run `python scripts/twilio/verify.py --credentials-only`, `python scripts/twilio/list_numbers.py`, and `python scripts/twilio/setup.py`. |
+| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live account verification is blocked: `python3.14 scripts/twilio/verify.py --credentials-only` currently fails because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` are not in the local environment. Billing/number access, AI/ML addendum status, ConversationRelay status, and live phone routing are still unverified. | Export Twilio credentials locally, confirm manual account gates, then run `python3.14 scripts/twilio/verify.py --credentials-only`, `python3.14 scripts/twilio/list_numbers.py`, and `python3.14 scripts/twilio/setup.py`. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
 | Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
@@ -178,6 +178,10 @@ Implementation status:
 - [ ] AI/ML addendum accepted if ConversationRelay remains the primary path.
 - [ ] ConversationRelay enabled, or Gather fallback explicitly marked as the live-call path.
 - [ ] TwiML App and phone-number association verified against real Twilio resources.
+
+Latest live check:
+
+- 2026-06-30: `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. No Twilio account facts were verified.
 
 Core checks:
 

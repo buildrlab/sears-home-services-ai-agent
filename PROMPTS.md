@@ -353,3 +353,24 @@ The assistant recorded the commit-and-push workflow rule in `AGENTS.md`, committ
 
 - `AGENTS.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Live Completion Gate
+
+### Prompt
+
+The user said to make sure everything is live-complete before moving on.
+
+### Response
+
+The assistant stopped Phase 1 startup and treated Phase 0.5 as the active gate. The safe Twilio credential check `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. The assistant updated the plan, Twilio runbook, and agent instructions to explicitly prevent phase advancement until live-completion gates pass or the user explicitly overrides the blocker.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `python3.14 scripts/twilio/verify.py --credentials-only`

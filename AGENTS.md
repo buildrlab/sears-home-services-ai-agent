@@ -11,6 +11,8 @@ The reviewer will be checking code quality closely. Treat every change as produc
 - New backend code must have unit tests and functional/integration coverage.
 - New frontend code must have unit/component coverage and Playwright coverage for user-facing flows.
 - Phase completion requires local execution, tests, browser verification where relevant, and bug fixes before moving on.
+- Do not move to a later phase while the current phase has unresolved live-completion gates, unless the user explicitly accepts that blocker and asks to proceed anyway.
+- For external services, "repo-complete" is not complete: live credentials, real account access, deployed or tunneled callbacks, and provider-side settings must be verified before marking the phase complete.
 - When tests, browser console logs, linting, security scans, or local runs expose defects, fix them and rerun the failing checks.
 - Do not accept known flaky tests, ignored failures, or unexplained warnings as complete.
 - Do not claim zero vulnerabilities; claim zero known vulnerabilities only after current scans pass.
