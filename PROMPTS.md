@@ -105,3 +105,18 @@ The assistant created the local monorepo scaffold under `/Users/damien/Documents
 - Ran `git diff --check`.
 - Ran a no-bytecode Python syntax check for the backend scaffold test.
 
+## 2026-06-30 Database ADR Clarification
+
+### Prompt
+
+The user asked to make sure the project includes an ADR item on the database choice of PostgreSQL vs DynamoDB.
+
+### Response
+
+The assistant expanded `docs/adr/0001-use-postgresql-for-scheduling.md` from a short scheduling ADR into an explicit PostgreSQL vs DynamoDB decision record. The ADR now documents scheduling access patterns, natural relationships, why PostgreSQL fits better, why DynamoDB is not the primary scheduling store, alternatives considered, and revisit criteria.
+
+### Files Changed
+
+- `docs/adr/0001-use-postgresql-for-scheduling.md`
+- `PROMPTS.md`
+
