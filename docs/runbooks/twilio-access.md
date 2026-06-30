@@ -181,7 +181,7 @@ Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are 
 - ConversationRelay is enabled, or Gather fallback is explicitly chosen for the live path.
 - A real inbound call reaches the webhook and produces the expected response.
 
-Latest status as of 2026-06-30: Twilio credential verification passed from the user's local environment. Remaining blockers are billing/trial confirmation, voice-capable number assignment, ConversationRelay status or Gather fallback decision, TwiML App setup, phone-number association, and a real inbound call.
+Latest status as of 2026-06-30: Twilio credential verification passed from the user's local environment, and `list_numbers.py` returned available US voice-capable local numbers with no address requirement. Remaining blockers are billing/trial confirmation, choosing and purchasing/assigning a voice-capable number, ConversationRelay status or Gather fallback decision, TwiML App setup, phone-number association, and a real inbound call.
 
 ## Completion Criteria
 

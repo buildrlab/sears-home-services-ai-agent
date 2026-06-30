@@ -390,3 +390,19 @@ The assistant marked the Twilio account credential gate as passed while keeping 
 - `PLAN.md`
 - `docs/runbooks/twilio-access.md`
 - `PROMPTS.md`
+
+## 2026-06-30 Twilio Number Search Passed
+
+### Prompt
+
+The user reported the output of `python3.14 scripts/twilio/list_numbers.py --country US --limit 5`, which returned five available US voice-capable local numbers with no address requirement.
+
+### Response
+
+The assistant recorded that the Twilio number-search live check passed and identified the next live gate: choose and purchase or assign one voice-capable number in Twilio, then export `TWILIO_PHONE_NUMBER` and run the setup script.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
