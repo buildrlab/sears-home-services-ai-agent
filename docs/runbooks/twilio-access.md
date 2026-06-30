@@ -181,7 +181,7 @@ Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are 
 - ConversationRelay is enabled, or Gather fallback is explicitly chosen for the live path.
 - A real inbound call reaches the webhook and produces the expected response.
 
-Current blocker as of 2026-06-30: local credential verification fails because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` are not present in the environment.
+Latest status as of 2026-06-30: Twilio credential verification passed from the user's local environment. Remaining blockers are billing/trial confirmation, voice-capable number assignment, ConversationRelay status or Gather fallback decision, TwiML App setup, phone-number association, and a real inbound call.
 
 ## Completion Criteria
 

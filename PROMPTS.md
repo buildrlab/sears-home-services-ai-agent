@@ -374,3 +374,19 @@ The assistant stopped Phase 1 startup and treated Phase 0.5 as the active gate. 
 ### Verification
 
 - `python3.14 scripts/twilio/verify.py --credentials-only`
+
+## 2026-06-30 Twilio Credential Verification Passed
+
+### Prompt
+
+The user reported the output of `python3.14 scripts/twilio/verify.py --credentials-only`. Twilio credential validation passed, TwiML App and phone-number checks were skipped, ConversationRelay status remained unknown, Gather fallback was available, and the overall result was true.
+
+### Response
+
+The assistant marked the Twilio account credential gate as passed while keeping Phase 0.5 blocked on the remaining live gates: billing/trial confirmation, voice-capable phone number assignment, ConversationRelay or Gather fallback decision, TwiML App setup, phone-number association, and a real inbound call.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`

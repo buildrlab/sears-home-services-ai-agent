@@ -67,7 +67,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live account verification is blocked: `python3.14 scripts/twilio/verify.py --credentials-only` currently fails because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` are not in the local environment. Billing/number access, AI/ML addendum status, ConversationRelay status, and live phone routing are still unverified. | Export Twilio credentials locally, confirm manual account gates, then run `python3.14 scripts/twilio/verify.py --credentials-only`, `python3.14 scripts/twilio/list_numbers.py`, and `python3.14 scripts/twilio/setup.py`. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
+| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed from the user's local environment. Billing/number access, AI/ML addendum status, ConversationRelay status, TwiML App setup, phone-number association, and live phone routing are still unverified. | Confirm billing/trial status, assign or purchase a voice-capable number, confirm ConversationRelay status or choose Gather fallback, then run `python3.14 scripts/twilio/list_numbers.py`, `python3.14 scripts/twilio/setup.py`, and `python3.14 scripts/twilio/verify.py --phone-number "$TWILIO_PHONE_NUMBER"`. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
 | Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
@@ -172,7 +172,7 @@ Implementation status:
 - [x] `scripts/twilio/list_numbers.py` lists available voice-capable local numbers without purchasing them.
 - [x] Script unit tests cover request construction, redaction, validation, CLI help, and dry-run behavior.
 - [x] Scripts CI compiles scripts, runs unit tests, and runs Ruff.
-- [ ] Twilio account access verified with real credentials.
+- [x] Twilio account access verified with real credentials.
 - [ ] Billing/trial status confirmed for live voice testing.
 - [ ] Voice-capable phone number assigned or purchased.
 - [ ] AI/ML addendum accepted if ConversationRelay remains the primary path.
@@ -181,6 +181,7 @@ Implementation status:
 
 Latest live check:
 
+- 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --credentials-only`; credential validation passed, TwiML App and phone-number checks were skipped, ConversationRelay remains unknown, and Gather fallback remains available.
 - 2026-06-30: `python3.14 scripts/twilio/verify.py --credentials-only` failed because `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` were missing from the local environment. No Twilio account facts were verified.
 
 Core checks:
