@@ -130,6 +130,7 @@ Rules:
 - `main` is release-only.
 - Dependabot updates target `dev`.
 - Commit and push every coherent completed change set before moving to the next implementation slice.
+- After pushing a phase or feature branch, create a PR into `dev` and merge it when GitHub reports the PR is mergeable and required checks/policies allow it.
 - Do not merge dependency updates unless base branch, mergeability, and required checks are verified.
 - Do not auto-commit unrelated local changes.
 - All deploys to AWS must run through Terraform and GitHub Actions.

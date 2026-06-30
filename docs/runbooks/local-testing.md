@@ -29,15 +29,32 @@ Local services:
 ```bash
 cd backend
 python3.14 -m pip install -e ".[dev]"
+python -W error -m pytest
 ruff check .
-pytest
+pip-audit
 ```
 
 Phase 1 and later must also include:
 
 ```bash
 alembic upgrade head
-pytest tests
+python -m app.seed
+uvicorn app.main:app --port 8000
+curl http://127.0.0.1:8000/healthz
+```
+
+If local port `5432` is already in use, run a temporary PostgreSQL 18 container
+on a different port and override `DATABASE_URL`:
+
+```bash
+docker run --rm -d --name shs-phase1-postgres \
+  -e POSTGRES_DB=shs_ai_agent \
+  -e POSTGRES_USER=shs \
+  -e POSTGRES_PASSWORD=shs_local_password \
+  -p 55432:5432 \
+  postgres:18-alpine
+
+export DATABASE_URL="postgresql+psycopg://shs:shs_local_password@localhost:55432/shs_ai_agent"
 ```
 
 ## Script Checks
