@@ -282,13 +282,15 @@ Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are 
 - ConversationRelay is enabled, or Gather fallback is explicitly chosen for the live path.
 - A real inbound call reaches the webhook and produces the expected response.
 
-Latest status as of 2026-06-30: Twilio credential verification passed from the user's local environment, `list_numbers.py` returned available US voice-capable local numbers with no address requirement, `setup.py --dry-run` confirmed the selected redacted phone number exists and can be attached after TwiML App creation, the non-dry-run setup created the TwiML App and attached the selected number, and `verify.py` confirmed AWS webhook URLs plus phone routing. Gather fallback is the explicit Phase 0.5 live-call path. Remaining blockers are billing/trial confirmation and a real inbound call through the smoke webhook.
+Latest status as of 2026-07-01: Phase 0.5 live-call verification is complete. Twilio credential verification passed from the user's local environment, `list_numbers.py` returned available US voice-capable local numbers with no address requirement, `setup.py --dry-run` confirmed the selected redacted phone number exists and can be attached after TwiML App creation, the non-dry-run setup created the TwiML App and attached the selected number, `verify.py` confirmed AWS webhook URLs plus phone routing, and a real inbound call through ngrok reached the smoke webhook. The smoke server recorded `voice_incoming`, `gather_response` with speech result `Test.`, and `status_callback` with completed call status. The user reported Twilio was updated after the smoke test; Codex could not independently verify the restored provider state because Twilio credentials are not loaded in the Codex shell.
+
+Operational follow-up: after any ngrok/cloudflared smoke test, restore the TwiML App to the AWS placeholder URL and run the restore verification command above. ConversationRelay addendum acceptance and enablement remain Phase 4 gates; Gather fallback is the completed Phase 0.5 live-call path.
 
 ## Completion Criteria
 
 - Twilio account access is confirmed.
 - Voice-capable number exists or can be provisioned.
-- ConversationRelay status is known.
-- Gather fallback path is confirmed as available.
+- ConversationRelay addendum and enablement are deferred to Phase 4.
+- Gather fallback path is confirmed with a real inbound call.
 - Script-first automation path is implemented or explicitly blocked.
 - Any remaining manual Twilio steps are documented.

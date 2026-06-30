@@ -67,8 +67,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase | Status | Current outcome | Next action |
 | --- | --- | --- | --- |
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
-| Phase 0.5: Twilio Access and Provisioning | Blocked | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, and Gather fallback is the explicit Phase 0.5 live-call path. Billing/trial status and a real inbound call through the smoke webhook are still unverified. | Run `scripts/twilio/smoke_server.py`, point Twilio at a secure tunnel, place a real inbound call, verify the smoke webhook records the call, then restore the AWS webhook URL. Do not move to Phase 1 until Phase 0.5 live gates pass or the user explicitly overrides the gate. |
-| Phase 1: Backend Foundation | Pending | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
+| Phase 0.5: Twilio Access and Provisioning | Complete | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, Gather fallback is the explicit Phase 0.5 live-call path, a real inbound call reached the smoke webhook, and the user reported Twilio was restored after the smoke test. | Keep ConversationRelay addendum/enablement as a Phase 4 gate. |
+| Phase 1: Backend Foundation | Next | Not started. | Build FastAPI, SQLAlchemy, Alembic, local Postgres, seed data, and tests. |
 | Phase 2: Scheduling Domain | Pending | Not started. | Implement transactional scheduling and double-booking protection. |
 | Phase 3: Diagnostic Agent | Pending | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
 | Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
@@ -175,16 +175,18 @@ Implementation status:
 - [x] Script unit tests cover request construction, redaction, validation, CLI help, and dry-run behavior.
 - [x] Scripts CI compiles scripts, runs unit tests, and runs Ruff.
 - [x] Twilio account access verified with real credentials.
-- [ ] Billing/trial status confirmed for live voice testing.
+- [x] Billing/trial status confirmed sufficient for live voice testing by a completed inbound call.
 - [x] Voice-capable phone number assigned or purchased.
 - [x] AI/ML addendum and ConversationRelay enablement are deferred to Phase 4, not Phase 0.5.
 - [x] Gather fallback explicitly marked as the Phase 0.5 live-call path.
 - [x] TwiML App created and phone-number association applied against real Twilio resources.
 - [x] Independent `verify.py` check confirms the TwiML App webhook URLs and phone-number routing.
-- [ ] Real inbound call reaches the Phase 0.5 smoke webhook and records the expected events.
+- [x] Real inbound call reaches the Phase 0.5 smoke webhook and records the expected events.
 
 Latest live check:
 
+- 2026-07-01: User reported Twilio was updated after the smoke test. Treat this as the restore confirmation for Phase 0.5; Codex could not independently verify the provider state because Twilio credentials are not loaded in the Codex shell.
+- 2026-07-01: User placed a real inbound Twilio call through the ngrok tunnel to the Phase 0.5 smoke webhook. The smoke server recorded `voice_incoming`, returned HTTP 200 from `/twilio/voice/incoming`, recorded `gather_response` with speech result `Test.`, returned HTTP 200 from `/twilio/voice/gather`, recorded `status_callback` with `CallStatus=completed` and `CallDuration=22`, and returned HTTP 204 from `/twilio/voice/status`. This confirms the live phone number, TwiML App routing, Gather fallback, tunnel, and local smoke webhook path.
 - 2026-06-30: Local smoke webhook was run on `127.0.0.1:8765`; `/healthz` returned OK, `POST /twilio/voice/incoming` returned Gather TwiML, `POST /twilio/voice/status` returned 204, and logged call fields were redacted. No external tunnel CLI was available in the Codex environment, so the real phone-call gate still requires ngrok or cloudflared.
 - 2026-06-30: User ran `python3.14 scripts/twilio/verify.py --friendly-name "SHS AI Agent" --phone-number "[redacted E.164]" --expected-voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --expected-status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status"`; credential validation passed, the TwiML App was found, Voice URL and status callback URL matched, phone routing was `True`, ConversationRelay remained unknown, Gather fallback remained available, and overall status was `True`.
 - 2026-06-30: User ran `python3.14 scripts/twilio/setup.py --friendly-name "SHS AI Agent" --voice-url "https://api.shs.buildrlab.com/twilio/voice/incoming" --status-callback-url "https://api.shs.buildrlab.com/twilio/voice/status" --phone-number "[redacted E.164]"`; credential validation passed, the TwiML App action was `created`, and the selected phone resource action was `attached`.

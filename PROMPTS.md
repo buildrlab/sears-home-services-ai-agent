@@ -485,3 +485,19 @@ The assistant also locally verified the smoke webhook: `/healthz` returned OK, t
 - `scripts/twilio/smoke_server.py`
 - `tests/test_twilio_scripts.py`
 - `PROMPTS.md`
+
+## 2026-07-01 Phase 0.5 Live Call Complete
+
+### Prompt
+
+The user pasted the live Twilio smoke webhook output showing `voice_incoming`, `gather_response` with speech result `Test.`, and `status_callback` with completed call status. The user then said Twilio had been updated and asked to proceed.
+
+### Response
+
+The assistant marked Phase 0.5 complete, recorded the live-call evidence, treated the user's follow-up as the Twilio restore confirmation, and noted that Codex could not independently verify restored provider state because Twilio credentials are not loaded in the Codex shell. Phase 1 became the next implementation phase.
+
+### Files Changed
+
+- `PLAN.md`
+- `docs/runbooks/twilio-access.md`
+- `PROMPTS.md`
