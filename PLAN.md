@@ -582,7 +582,7 @@ Deliverables:
 - [x] Deploy preflight script checks GitHub CLI auth, GitHub environment, environment-scoped secrets/variables, branch protection, and AWS caller identity before a deploy run.
 - [x] Dry-run-capable GitHub deploy configuration script can create/update the deployment environment, required variables, and optional environment-scoped secrets after `gh` authentication is restored.
 - [x] Dry-run-capable GitHub branch protection script can apply the conservative `dev` policy after `gh` authentication is restored.
-- [ ] GitHub deployment environment variables/secrets configured.
+- [x] GitHub deployment environment variables/secrets configured.
 - [ ] AWS deploy workflow run in plan mode after shared state exists.
 - [ ] AWS deploy workflow run in apply mode.
 - [x] Branch protection recommendations documented.
@@ -622,6 +622,7 @@ Current GitHub configuration check:
 - 2026-07-01: The user configured the GitHub `prod` environment and reran `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json`; every preflight check passed, including environment secrets, environment variables, branch protection, and AWS identity for account `710045722740`.
 - 2026-07-01: AWS Deploy workflow run `28505841497` was triggered from `dev` in non-mutating `plan` mode. Shared Terraform plan succeeded, then the workflow exposed a first-deploy plan bug: downstream backend variable generation tried to consume blank shared outputs before shared apply had created them.
 - 2026-07-01: AWS Deploy workflow run `28506305251` was triggered from `dev` in first-deploy `apply` mode with `bootstrap_backend=true`. Shared Terraform apply succeeded, then backend Terraform plan failed because SES DKIM Route 53 records used unknown DKIM token values as `for_each` keys. The backend Terraform was patched to use static DKIM record indexes as keys.
+- 2026-07-01: AWS Deploy workflow run `28506856858` was triggered from `dev` in first-deploy `apply` mode with `bootstrap_backend=true`. Shared Terraform apply and backend bootstrap apply succeeded, creating the initial backend AWS resources. The run then failed in `Publish backend runtime secrets` because workload-role AWS CLI steps attempted to run `terraform output` against the central S3 state bucket and received S3 `403 Forbidden`. The deploy workflow is being patched to capture backend/frontend Terraform outputs before assuming the workload role.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -631,6 +632,7 @@ Latest local verification:
 - 2026-07-01: Ruby YAML parsing passed for all workflow files.
 - 2026-07-01: `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests` passed.
 - 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 40 tests after the GitHub deploy/branch-protection/preflight script additions.
+- 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 56 tests after the deploy output-capture workflow fix.
 - 2026-07-01: `backend/.venv/bin/ruff check scripts tests` passed.
 - 2026-07-01: `scripts/terraform/validate.sh` passed for all Terraform stacks after allowing provider-registry network access.
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.

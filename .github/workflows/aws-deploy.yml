@@ -276,6 +276,31 @@ jobs:
             -var "api_desired_count=0" \
             -var "worker_desired_count=0"
 
+      - name: Capture backend outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: backend
+        run: |
+          set -euo pipefail
+          backend_outputs="$(terraform -chdir=backend/infra output -json)"
+          if ! jq -e '
+            has("ecr_repository_url") and
+            has("ecs_tasks_security_group_id") and
+            has("migration_task_definition_arn") and
+            has("openai_api_key_secret_arn") and
+            has("twilio_auth_token_secret_arn")
+          ' <<< "$backend_outputs" >/dev/null; then
+            echo "::error::Backend Terraform outputs are unavailable after backend bootstrap/apply."
+            echo "$backend_outputs"
+            exit 1
+          fi
+          {
+            echo "ecr_repository_url=$(jq -r '.ecr_repository_url.value' <<< "$backend_outputs")"
+            echo "ecs_tasks_security_group_id=$(jq -r '.ecs_tasks_security_group_id.value' <<< "$backend_outputs")"
+            echo "migration_task_definition_arn=$(jq -r '.migration_task_definition_arn.value' <<< "$backend_outputs")"
+            echo "openai_api_key_secret_arn=$(jq -r '.openai_api_key_secret_arn.value' <<< "$backend_outputs")"
+            echo "twilio_auth_token_secret_arn=$(jq -r '.twilio_auth_token_secret_arn.value' <<< "$backend_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Assume workload role for AWS CLI deploy steps
         if: ${{ env.DEPLOY_MODE == 'apply' }}
         id: workload
@@ -300,15 +325,14 @@ jobs:
           AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          OPENAI_SECRET_ARN: ${{ steps.backend.outputs.openai_api_key_secret_arn }}
+          TWILIO_SECRET_ARN: ${{ steps.backend.outputs.twilio_auth_token_secret_arn }}
         run: |
-          openai_secret_arn="$(terraform -chdir=backend/infra output -raw openai_api_key_secret_arn)"
-          twilio_secret_arn="$(terraform -chdir=backend/infra output -raw twilio_auth_token_secret_arn)"
-
           if [ -n "$OPENAI_API_KEY" ]; then
             aws secretsmanager put-secret-value \
-              --secret-id "$openai_secret_arn" \
+              --secret-id "$OPENAI_SECRET_ARN" \
               --secret-string "$OPENAI_API_KEY"
-          elif aws secretsmanager get-secret-value --secret-id "$openai_secret_arn" >/dev/null 2>&1; then
+          elif aws secretsmanager get-secret-value --secret-id "$OPENAI_SECRET_ARN" >/dev/null 2>&1; then
             echo "OpenAI secret already has an AWSCURRENT value."
           else
             echo "::error::OPENAI_API_KEY is not set and the AWS OpenAI secret has no value"
@@ -316,9 +340,9 @@ jobs:
           fi
           if [ -n "$TWILIO_AUTH_TOKEN" ]; then
             aws secretsmanager put-secret-value \
-              --secret-id "$twilio_secret_arn" \
+              --secret-id "$TWILIO_SECRET_ARN" \
               --secret-string "$TWILIO_AUTH_TOKEN"
-          elif aws secretsmanager get-secret-value --secret-id "$twilio_secret_arn" >/dev/null 2>&1; then
+          elif aws secretsmanager get-secret-value --secret-id "$TWILIO_SECRET_ARN" >/dev/null 2>&1; then
             echo "Twilio secret already has an AWSCURRENT value."
           else
             echo "::error::TWILIO_AUTH_TOKEN is not set and the AWS Twilio secret has no value"
@@ -331,13 +355,13 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
           AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          ECR_REPOSITORY_URL: ${{ steps.backend.outputs.ecr_repository_url }}
         run: |
-          ecr_repository_url="$(terraform -chdir=backend/infra output -raw ecr_repository_url)"
-          ecr_registry="${ecr_repository_url%%/*}"
+          ecr_registry="${ECR_REPOSITORY_URL%%/*}"
           aws ecr get-login-password --region "$AWS_REGION" |
             docker login --username AWS --password-stdin "$ecr_registry"
-          docker build --platform linux/amd64 -t "${ecr_repository_url}:${GITHUB_SHA}" backend
-          docker push "${ecr_repository_url}:${GITHUB_SHA}"
+          docker build --platform linux/amd64 -t "${ECR_REPOSITORY_URL}:${GITHUB_SHA}" backend
+          docker push "${ECR_REPOSITORY_URL}:${GITHUB_SHA}"
 
       - name: Terraform backend apply
         if: ${{ env.DEPLOY_MODE == 'apply' }}
@@ -349,30 +373,32 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
           AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          ECS_CLUSTER_NAME: ${{ steps.shared.outputs.ecs_cluster_name }}
+          ECS_TASKS_SECURITY_GROUP_ID: ${{ steps.backend.outputs.ecs_tasks_security_group_id }}
+          MIGRATION_TASK_DEFINITION_ARN: ${{ steps.backend.outputs.migration_task_definition_arn }}
+          PRIVATE_SUBNET_IDS: ${{ steps.shared.outputs.private_subnet_ids }}
         run: |
-          private_subnets="$(terraform -chdir=infra/shared output -json private_subnet_ids | jq -r 'join(",")')"
-          task_security_group="$(terraform -chdir=backend/infra output -raw ecs_tasks_security_group_id)"
-          migration_task_definition="$(terraform -chdir=backend/infra output -raw migration_task_definition_arn)"
+          private_subnets="$(jq -r 'join(",")' <<< "$PRIVATE_SUBNET_IDS")"
           task_arn="$(aws ecs run-task \
-            --cluster "${{ steps.shared.outputs.ecs_cluster_name }}" \
-            --task-definition "$migration_task_definition" \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --task-definition "$MIGRATION_TASK_DEFINITION_ARN" \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[$private_subnets],securityGroups=[$task_security_group],assignPublicIp=DISABLED}" \
+            --network-configuration "awsvpcConfiguration={subnets=[$private_subnets],securityGroups=[$ECS_TASKS_SECURITY_GROUP_ID],assignPublicIp=DISABLED}" \
             --query 'tasks[0].taskArn' \
             --output text)"
           if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then
             echo "::error::Migration task did not start"
             exit 1
           fi
-          aws ecs wait tasks-stopped --cluster "${{ steps.shared.outputs.ecs_cluster_name }}" --tasks "$task_arn"
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER_NAME" --tasks "$task_arn"
           exit_code="$(aws ecs describe-tasks \
-            --cluster "${{ steps.shared.outputs.ecs_cluster_name }}" \
+            --cluster "$ECS_CLUSTER_NAME" \
             --tasks "$task_arn" \
             --query "tasks[0].containers[?name=='migration'].exitCode | [0]" \
             --output text)"
           if [ "$exit_code" != "0" ]; then
             aws ecs describe-tasks \
-              --cluster "${{ steps.shared.outputs.ecs_cluster_name }}" \
+              --cluster "$ECS_CLUSTER_NAME" \
               --tasks "$task_arn"
             echo "::error::Migration task exited with code $exit_code"
             exit 1
@@ -420,6 +446,25 @@ jobs:
         if: ${{ env.DEPLOY_MODE == 'apply' }}
         run: terraform -chdir=frontend/infra apply -auto-approve tfplan
 
+      - name: Capture frontend outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: frontend
+        run: |
+          set -euo pipefail
+          frontend_outputs="$(terraform -chdir=frontend/infra output -json)"
+          if ! jq -e '
+            has("frontend_bucket_name") and
+            has("cloudfront_distribution_id")
+          ' <<< "$frontend_outputs" >/dev/null; then
+            echo "::error::Frontend Terraform outputs are unavailable after frontend apply."
+            echo "$frontend_outputs"
+            exit 1
+          fi
+          {
+            echo "frontend_bucket_name=$(jq -r '.frontend_bucket_name.value' <<< "$frontend_outputs")"
+            echo "cloudfront_distribution_id=$(jq -r '.cloudfront_distribution_id.value' <<< "$frontend_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build frontend
         if: ${{ env.DEPLOY_MODE == 'apply' }}
         working-directory: frontend
@@ -435,17 +480,17 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
           AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          FRONTEND_BUCKET_NAME: ${{ steps.frontend.outputs.frontend_bucket_name }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.frontend.outputs.cloudfront_distribution_id }}
         run: |
-          frontend_bucket="$(terraform -chdir=frontend/infra output -raw frontend_bucket_name)"
-          distribution_id="$(terraform -chdir=frontend/infra output -raw cloudfront_distribution_id)"
-          aws s3 sync frontend/dist/ "s3://${frontend_bucket}/" --delete
+          aws s3 sync frontend/dist/ "s3://${FRONTEND_BUCKET_NAME}/" --delete
           invalidation_id="$(aws cloudfront create-invalidation \
-            --distribution-id "$distribution_id" \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*" \
             --query 'Invalidation.Id' \
             --output text)"
           aws cloudfront wait invalidation-completed \
-            --distribution-id "$distribution_id" \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --id "$invalidation_id"
 
       - name: Remote smoke tests
