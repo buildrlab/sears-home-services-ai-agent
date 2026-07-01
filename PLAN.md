@@ -621,6 +621,7 @@ Current GitHub configuration check:
 - 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` now passes all branch protection checks and AWS identity; remaining blockers are the missing GitHub `prod` environment plus environment-scoped secrets and variables.
 - 2026-07-01: The user configured the GitHub `prod` environment and reran `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json`; every preflight check passed, including environment secrets, environment variables, branch protection, and AWS identity for account `710045722740`.
 - 2026-07-01: AWS Deploy workflow run `28505841497` was triggered from `dev` in non-mutating `plan` mode. Shared Terraform plan succeeded, then the workflow exposed a first-deploy plan bug: downstream backend variable generation tried to consume blank shared outputs before shared apply had created them.
+- 2026-07-01: AWS Deploy workflow run `28506305251` was triggered from `dev` in first-deploy `apply` mode with `bootstrap_backend=true`. Shared Terraform apply succeeded, then backend Terraform plan failed because SES DKIM Route 53 records used unknown DKIM token values as `for_each` keys. The backend Terraform was patched to use static DKIM record indexes as keys.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
