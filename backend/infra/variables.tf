@@ -174,6 +174,12 @@ variable "aurora_max_capacity" {
   default     = 2
 }
 
+variable "enable_alb_deletion_protection" {
+  description = "Enable ALB deletion protection. Null keeps the production-safe default."
+  type        = bool
+  default     = null
+}
+
 variable "database_deletion_protection" {
   description = "Enable Aurora deletion protection."
   type        = bool
@@ -190,6 +196,18 @@ variable "upload_bucket_name" {
   description = "Optional exact S3 bucket name for uploaded appliance images."
   type        = string
   default     = null
+}
+
+variable "upload_bucket_force_destroy" {
+  description = "Allow Terraform to delete non-empty upload buckets during deliberate project teardown."
+  type        = bool
+  default     = false
+}
+
+variable "ecr_force_delete" {
+  description = "Allow Terraform to delete the backend ECR repository even when images remain during deliberate project teardown."
+  type        = bool
+  default     = false
 }
 
 variable "upload_token_ttl_minutes" {

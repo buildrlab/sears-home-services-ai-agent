@@ -72,6 +72,12 @@ variable "frontend_bucket_name" {
   default     = null
 }
 
+variable "frontend_bucket_force_destroy" {
+  description = "Allow Terraform to delete non-empty frontend buckets during deliberate project teardown."
+  type        = bool
+  default     = false
+}
+
 variable "cloudfront_price_class" {
   description = "CloudFront price class."
   type        = string

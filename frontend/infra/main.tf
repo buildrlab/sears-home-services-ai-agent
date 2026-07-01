@@ -42,7 +42,8 @@ resource "aws_kms_alias" "frontend" {
 }
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = local.frontend_bucket_name
+  bucket        = local.frontend_bucket_name
+  force_destroy = var.frontend_bucket_force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {

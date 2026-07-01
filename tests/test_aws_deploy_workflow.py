@@ -5,6 +5,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "aws-deploy.yml"
+DESTROY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "aws-destroy.yml"
 
 
 class AwsDeployWorkflowTests(unittest.TestCase):
@@ -108,6 +109,48 @@ class AwsDeployWorkflowTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("terraform -chdir=frontend/infra output -raw", workflow)
+
+    def test_deploy_and_destroy_share_concurrency_group(self) -> None:
+        deploy_workflow = WORKFLOW.read_text(encoding="utf-8")
+        destroy_workflow = DESTROY_WORKFLOW.read_text(encoding="utf-8")
+        concurrency_group = (
+            "group: aws-environment-${{ github.event.inputs.environment || 'prod' }}"
+        )
+
+        self.assertIn(concurrency_group, deploy_workflow)
+        self.assertIn(concurrency_group, destroy_workflow)
+
+    def test_destroy_workflow_is_manual_and_guarded(self) -> None:
+        workflow = DESTROY_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("type: choice", workflow)
+        self.assertIn("- plan", workflow)
+        self.assertIn("- destroy", workflow)
+        self.assertIn(
+            'expected_confirmation="destroy ${PROJECT_NAME} ${DEPLOY_ENVIRONMENT}"',
+            workflow,
+        )
+        self.assertIn('if [ "$DESTROY_CONFIRMATION" != "$expected_confirmation" ]; then', workflow)
+        self.assertIn('if [ "$DELETE_DATA" != "true" ]; then', workflow)
+        self.assertIn(
+            "The shared Terraform state bucket is not destroyed by this workflow",
+            workflow,
+        )
+
+    def test_destroy_workflow_tears_down_in_reverse_stack_order(self) -> None:
+        workflow = DESTROY_WORKFLOW.read_text(encoding="utf-8")
+
+        frontend_destroy = workflow.index("- name: Terraform frontend destroy")
+        backend_destroy = workflow.index("- name: Terraform backend destroy")
+        shared_destroy = workflow.index("- name: Terraform shared destroy")
+        self.assertLess(frontend_destroy, backend_destroy)
+        self.assertLess(backend_destroy, shared_destroy)
+        self.assertIn("enable_alb_deletion_protection: false", workflow)
+        self.assertIn("database_deletion_protection: false", workflow)
+        self.assertIn("upload_bucket_force_destroy: $delete_data", workflow)
+        self.assertIn("frontend_bucket_force_destroy: $delete_data", workflow)
+        self.assertIn("ecr_force_delete: $delete_data", workflow)
 
 
 if __name__ == "__main__":

@@ -198,6 +198,13 @@ See [GitHub Branch Protection Runbook](docs/runbooks/github-branch-protection.md
 See [Technical Design](docs/technical-design.md) and [Submission Hardening](docs/submission-hardening.md) for reviewer-facing architecture, security, cost, and known-limitations notes.
 See [GitHub Scripts](scripts/github/README.md) for deployment environment setup automation.
 
+Manual AWS teardown is available through `.github/workflows/aws-destroy.yml`.
+Run it in `plan` mode first. To remove resources after the project is over, run
+it with `mode=destroy`, `delete_data=true`, and confirmation text
+`destroy sears-home-services-ai-agent prod`. The workflow destroys frontend,
+backend, and optionally shared workload resources, but intentionally retains the
+shared Terraform state bucket.
+
 ## Reviewer Smoke Test
 
 After starting the local backend and dependencies, run the reviewer smoke flow:

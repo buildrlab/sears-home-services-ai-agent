@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import quote_plus
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://shs:shs_local_password@localhost:5432/shs_ai_agent"
@@ -176,6 +176,25 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
+
+    @field_validator(
+        "database_host",
+        "database_user",
+        "database_password",
+        "openai_api_key",
+        "twilio_auth_token",
+        "public_base_url",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "s3_endpoint_url",
+        "sqs_vision_queue_url",
+        mode="before",
+    )
+    @classmethod
+    def _empty_string_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
 
     @property
     def cors_origin_list(self) -> list[str]:

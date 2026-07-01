@@ -147,6 +147,36 @@ Subsequent deployments:
 2. Review the Terraform plan output.
 3. Rerun in `apply` mode with `bootstrap_backend=false`.
 
+## AWS Teardown
+
+When the project is over, use **Actions -> AWS Destroy**. Do not delete
+resources manually in the AWS console.
+
+Recommended sequence:
+
+1. Run `.github/workflows/aws-destroy.yml` with `mode=plan`.
+2. Review the destroy plans for `frontend/infra`, `backend/infra`, and, if
+   selected, `infra/shared`.
+3. Rerun with `mode=destroy`.
+4. Set `delete_data=true`.
+5. Keep `skip_final_snapshot=false` unless the database is already backed up or
+   disposable.
+6. Enter confirmation text exactly:
+
+```text
+destroy sears-home-services-ai-agent prod
+```
+
+Use `scope=app-only` to remove CloudFront/S3, API, ECS/Fargate, Aurora, SQS,
+SES, Secrets Manager, ALB, and app DNS records while keeping the shared VPC,
+ECS cluster, and deployment IAM. Use `scope=all-including-shared` only for final
+project teardown.
+
+The destroy workflow intentionally does not destroy `infra/bootstrap` or the
+shared Terraform state bucket. It disables backend deletion protections, scales
+Fargate services to zero, and enables force deletion for managed S3 buckets and
+ECR only after `delete_data=true`.
+
 ## Database Migrations
 
 Production Alembic migrations must run outside the normal API runtime. Do not

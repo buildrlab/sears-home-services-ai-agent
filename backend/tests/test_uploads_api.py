@@ -30,6 +30,11 @@ class FakeEmailSender:
         self.sent.append(upload_url)
 
 
+class FailingEmailSender:
+    def send_upload_link(self, *, to_email: str, upload_url: str, expires_at: datetime) -> None:
+        raise RuntimeError("email provider rejected recipient")
+
+
 class FakeStorageClient:
     def create_presigned_post(
         self,
@@ -74,7 +79,9 @@ class FakeVisionProvider:
 
 def _client(
     db_session: Session,
-) -> tuple[TestClient, FakeEmailSender, FakeStorageClient, FakeVisionQueue]:
+    *,
+    email_sender: FakeEmailSender | FailingEmailSender | None = None,
+) -> tuple[TestClient, FakeEmailSender | FailingEmailSender, FakeStorageClient, FakeVisionQueue]:
     settings = Settings(
         environment="test",
         database_url="sqlite+pysqlite:///:memory:",
@@ -84,7 +91,7 @@ def _client(
         upload_allowed_content_types="image/jpeg,image/png",
     )
     app = create_app(settings)
-    email_sender = FakeEmailSender()
+    email_sender = email_sender or FakeEmailSender()
     storage_client = FakeStorageClient()
     vision_queue = FakeVisionQueue()
 
@@ -106,6 +113,25 @@ def _client(
     app.dependency_overrides[get_vision_queue] = lambda: vision_queue
     app.dependency_overrides[get_vision_provider] = lambda: FakeVisionProvider()
     return TestClient(app), email_sender, storage_client, vision_queue
+
+
+def test_upload_link_returns_created_when_email_delivery_fails(db_session: Session) -> None:
+    client, _, _, _ = _client(db_session, email_sender=FailingEmailSender())
+    session_response = client.post(
+        "/diagnostics/sessions",
+        json={"customer_phone": "+15551234567"},
+    )
+    session_id = session_response.json()["id"]
+
+    link_response = client.post(
+        f"/diagnostics/sessions/{session_id}/upload-link",
+        json={"email": "caller@example.test"},
+    )
+
+    assert link_response.status_code == 201
+    payload = link_response.json()
+    assert payload["email_sent"] is False
+    assert payload["upload_url"].startswith("https://shs.example.test/upload/")
 
 
 def test_upload_api_end_to_end_flow_updates_session_history(db_session: Session) -> None:

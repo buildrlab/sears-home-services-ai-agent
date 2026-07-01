@@ -1572,6 +1572,63 @@ calling `terraform output`.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
 
+## 2026-07-01 Manual AWS Destroy Workflow
+
+### Prompt
+
+The user asked to make sure the project has a destroy GitHub Action that can be
+triggered when the project is over.
+
+### Response
+
+The assistant added a manual `.github/workflows/aws-destroy.yml` workflow. The
+workflow defaults to non-mutating `plan` mode, uses the existing GitHub OIDC and
+Terraform S3 state configuration, and requires exact confirmation text plus
+`delete_data=true` before running destructive operations.
+
+The workflow destroys resources in reverse dependency order: `frontend/infra`,
+then `backend/infra`, then `infra/shared` only when
+`scope=all-including-shared`. It intentionally does not destroy
+`infra/bootstrap` or the shared Terraform state bucket.
+
+The assistant also added destroy-only Terraform switches so normal production
+deploys stay protected while teardown can complete: ALB deletion protection can
+be disabled, Aurora deletion protection is set false in the destroy workflow,
+Fargate services are scaled to zero, and S3/ECR force-delete flags are enabled
+only when `delete_data=true`.
+
+### Files Changed
+
+- `.github/workflows/aws-destroy.yml`
+- `.github/workflows/aws-deploy.yml`
+- `backend/app/config.py`
+- `backend/infra/main.tf`
+- `backend/infra/variables.tf`
+- `frontend/infra/main.tf`
+- `frontend/infra/variables.tf`
+- `tests/test_aws_deploy_workflow.py`
+- `tests/test_terraform_static_analysis.py`
+- `scripts/reviewer/final_readiness.py`
+- `README.md`
+- `infra/README.md`
+- `docs/runbooks/aws-testing.md`
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `actionlint .github/workflows/*.yml` passed.
+- Ruby YAML parsing passed for all workflow files.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 61 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `backend/.venv/bin/ruff check backend/app backend/tests` passed.
+- Backend `.venv/bin/python -W error -m pytest` passed with 62 tests.
+- Frontend `corepack pnpm lint`, `typecheck`, `test`, and `build` passed.
+- `scripts/terraform/validate.sh` passed for all Terraform stacks after
+  provider-registry network access was allowed.
+- `git diff --check` passed.
+
 ## 2026-07-01 Phase 8 Migration Task Output Refresh Fix
 
 ### Prompt

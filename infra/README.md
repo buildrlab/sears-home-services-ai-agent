@@ -46,3 +46,21 @@ create AWS resources.
 Pass `infra/shared` outputs into `backend/infra` through environment-specific
 tfvars or GitHub Actions outputs. Do not use manual console-created application
 resources.
+
+## Teardown
+
+Use `.github/workflows/aws-destroy.yml` when the project is over. It is
+manual-only, defaults to non-mutating `plan` mode, and requires the exact
+confirmation text `destroy sears-home-services-ai-agent prod` before deleting
+resources.
+
+The workflow destroys stacks in reverse order:
+
+1. `frontend/infra`
+2. `backend/infra`
+3. `infra/shared` only when `scope=all-including-shared`
+
+It intentionally does not destroy `infra/bootstrap` or the shared Terraform
+state bucket. The backend destroy path disables ALB and Aurora deletion
+protection, scales Fargate services to zero, and enables Terraform's explicit
+ECR/S3 force-delete flags only when `delete_data=true`.

@@ -140,7 +140,11 @@ export function Dashboard() {
     try {
       const response = await createUploadLink(selectedSession.id, uploadEmail.trim());
       setUploadEmail("");
-      setNotice(`Upload link sent: ${response.upload_url}`);
+      setNotice(
+        response.email_sent
+          ? `Upload link sent: ${response.upload_url}`
+          : `Upload link created, but email delivery needs attention: ${response.upload_url}`
+      );
       await refresh();
     } catch (uploadError) {
       setError(readableDashboardError(uploadError));

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import secrets
 import uuid
@@ -26,6 +27,7 @@ from app.services.storage import PresignedPost, UploadStorageClient, build_uploa
 from app.services.vision import VisionQueue, build_vision_queue
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -69,26 +71,48 @@ class UploadService:
         self._session.flush()
 
         upload_url = build_upload_url(self._settings, token)
-        self._email_sender.send_upload_link(
-            to_email=normalized_email,
-            upload_url=upload_url,
-            expires_at=upload.expires_at,
-        )
+        email_sent = True
+        email_delivery_error: str | None = None
+        try:
+            self._email_sender.send_upload_link(
+                to_email=normalized_email,
+                upload_url=upload_url,
+                expires_at=upload.expires_at,
+            )
+        except Exception as exc:
+            email_sent = False
+            email_delivery_error = type(exc).__name__
+            logger.warning("Upload link email delivery failed.", exc_info=True)
+
+        tool_payload: dict[str, object] = {
+            "image_upload_id": upload.id,
+            "email": redact_email(normalized_email),
+            "expires_at": upload.expires_at.isoformat(),
+            "email_sent": email_sent,
+        }
+        if email_delivery_error is not None:
+            tool_payload["email_delivery_error"] = email_delivery_error
+
         self._session.add(
             DiagnosticEvent(
                 session=diagnostic_session,
                 role=DiagnosticEventRole.TOOL.value,
-                content="Secure appliance image upload link sent.",
+                content=(
+                    "Secure appliance image upload link sent."
+                    if email_sent
+                    else "Secure appliance image upload link created; email delivery failed."
+                ),
                 tool_name="create_upload_link",
-                tool_payload={
-                    "image_upload_id": upload.id,
-                    "email": redact_email(normalized_email),
-                    "expires_at": upload.expires_at.isoformat(),
-                },
+                tool_payload=tool_payload,
             )
         )
         self._session.flush()
-        return UploadLinkResult(upload=upload, token=token, upload_url=upload_url, email_sent=True)
+        return UploadLinkResult(
+            upload=upload,
+            token=token,
+            upload_url=upload_url,
+            email_sent=email_sent,
+        )
 
     def get_upload_by_token(self, token: str) -> ImageUpload:
         upload = self._find_upload_by_token(token)
