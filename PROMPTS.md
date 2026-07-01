@@ -2105,3 +2105,32 @@ The assistant marked the Repository and CI checklist items complete:
 ### Verification
 
 - `git diff --check` passed.
+
+## 2026-07-01 Local Automated Checks Checklist Completion
+
+### Prompt
+
+The user asked to mark Section 2, Local Automated Checks, in
+`docs/pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant added completed checklist markers for the local automated check
+groups:
+
+- backend pytest coverage, backend Ruff, root script unit tests, and scripts/tests Ruff
+- frontend lint, typecheck, unit tests, production build, and local Playwright
+- backend and frontend dependency audits
+- workflow lint, Docker Compose config checks, Terraform validation, and diff whitespace check
+
+The command blocks remain in the checklist for repeatable reruns before final
+submission.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
