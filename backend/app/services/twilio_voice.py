@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -50,6 +51,13 @@ AVAILABILITY_TERMS = (
     "sunday",
 )
 MAX_EMPTY_SPEECH_RETRIES = 2
+MIN_SPEECH_CONFIDENCE = 0.35
+DTMF_BOOK_CONFIRMATION = "1"
+GATHER_HINTS = (
+    "refrigerator, fridge, freezer, washer, washing machine, dryer, dishwasher, oven, "
+    "range, stove, not cooling, leaking, not heating, not draining, not starting, "
+    "making noise, morning, afternoon, Monday morning, yes, book it, upload photo"
+)
 
 
 @dataclass(frozen=True)
@@ -364,7 +372,11 @@ class TwilioVoiceService:
         attempts = 0
         for event in self._session.scalars(statement):
             speech_result = event.payload.get("SpeechResult")
-            if not isinstance(speech_result, str) or not speech_result.strip():
+            if (
+                not isinstance(speech_result, str)
+                or not speech_result.strip()
+                or not _speech_confidence_is_acceptable(event.payload)
+            ):
                 attempts += 1
         return attempts
 
@@ -426,11 +438,15 @@ def validate_twilio_websocket_signature(websocket: WebSocket, settings: Settings
 def gather_twiml(*, prompt: str, action_url: str) -> str:
     response = VoiceResponse()
     gather = response.gather(
-        input="speech",
+        input="speech dtmf",
         action=action_url,
         method="POST",
         action_on_empty_result=True,
+        finish_on_key="#",
+        hints=GATHER_HINTS,
+        language="en-US",
         speech_timeout="auto",
+        timeout=5,
     )
     gather.say(prompt)
     response.redirect(action_url, method="POST")
@@ -500,6 +516,34 @@ def _has_availability_preference(text: str) -> bool:
     return any(term in normalized for term in AVAILABILITY_TERMS)
 
 
+def read_twilio_speech(params: dict[str, str], call_session: CallSession) -> str:
+    digits = _dtmf_digits(params)
+    if len(digits) == 5:
+        return f"The ZIP code is {digits}."
+    if digits == DTMF_BOOK_CONFIRMATION and call_session.diagnostic_session is not None:
+        if _latest_proposed_appointment_id(call_session.diagnostic_session) is not None:
+            return "Yes, book it."
+
+    speech = (params.get("SpeechResult") or "").strip()
+    if not speech or not _speech_confidence_is_acceptable(params):
+        return ""
+    return speech
+
+
+def _dtmf_digits(params: dict[str, str]) -> str:
+    return re.sub(r"\D", "", params.get("Digits") or "")
+
+
+def _speech_confidence_is_acceptable(payload: dict[str, object]) -> bool:
+    raw_confidence = payload.get("Confidence")
+    if raw_confidence is None:
+        return True
+    try:
+        return float(str(raw_confidence)) >= MIN_SPEECH_CONFIDENCE
+    except ValueError:
+        return True
+
+
 def _empty_retry_prompt(diagnostic_session: DiagnosticSession | None) -> str:
     if diagnostic_session is None or not diagnostic_session.appliance_type:
         return (
@@ -563,18 +607,25 @@ def _appointment_proposal_message(appointment: Appointment) -> str:
     return (
         "I found an appointment with "
         f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
-        "Say yes to book this appointment, or tell me another morning or afternoon."
+        "Say yes, or press 1, to book this appointment. "
+        "You can also tell me another morning or afternoon."
     )
 
 
 def _booking_confirmation_message(appointment: Appointment) -> str:
+    confirmation_code = appointment.confirmation_code or "pending"
     return (
         "Your Sears Home Services appointment is confirmed with "
         f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
-        f"Your confirmation code is {appointment.confirmation_code}. "
+        f"Your confirmation code is {confirmation_code}, spoken as "
+        f"{_format_code_for_voice(confirmation_code)}. "
         "Please keep the area around the appliance accessible for the technician."
     )
 
 
 def _format_voice_datetime(value: datetime) -> str:
     return value.strftime("%A at %-I:%M %p")
+
+
+def _format_code_for_voice(value: str) -> str:
+    return " ".join(value)

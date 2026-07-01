@@ -203,6 +203,26 @@ def test_openai_provider_uses_stateful_fallback_when_response_has_no_text() -> N
     assert "Do you prefer a morning or afternoon appointment" in result.assistant_message
 
 
+def test_openai_provider_replaces_generic_response_with_stateful_fallback() -> None:
+    client = FakeClient(
+        output_text="I can help diagnose the issue and schedule service.",
+        output=[{"type": "message", "content": "ignored"}],
+    )
+    settings = Settings(openai_api_key="test", openai_model="gpt-test")
+    provider = OpenAIResponsesProvider(settings, client=client)
+
+    result = provider.generate(
+        DiagnosticContext(
+            session=_session(appliance_type="refrigerator", symptoms=["leaking"], zip_code=None),
+            user_message="My refrigerator is leaking.",
+        )
+    )
+
+    assert result.status == DiagnosticSessionStatus.ACTIVE
+    assert result.tool_calls == []
+    assert "What ZIP code is the appliance in" in result.assistant_message
+
+
 def test_openai_provider_reads_object_style_function_call_items() -> None:
     client = FakeClient(
         output=[

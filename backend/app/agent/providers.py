@@ -12,6 +12,14 @@ from app.agent.tools import AgentToolCall, ToolName, validate_tool_call
 from app.config import Settings
 from app.models import DiagnosticSession, DiagnosticSessionStatus
 
+GENERIC_OPENAI_RESPONSES = (
+    "i can help diagnose",
+    "i can help you diagnose",
+    "i can help diagnose the issue and schedule service",
+    "i can help diagnose and schedule",
+    "i can help with that",
+)
+
 
 @dataclass(frozen=True)
 class DiagnosticContext:
@@ -138,7 +146,9 @@ class OpenAIResponsesProvider:
         response_tool_calls = list(_extract_tool_calls(getattr(response, "output", [])))
         tool_calls = response_tool_calls or fallback_result.tool_calls
         assistant_message = (getattr(response, "output_text", "") or "").strip()
-        if not assistant_message:
+        if not assistant_message or (
+            should_use_stateful_fallback(response_tool_calls, assistant_message, fallback_result)
+        ):
             assistant_message = fallback_result.assistant_message
 
         has_scheduling_tool = any(
@@ -168,6 +178,19 @@ def build_diagnostic_provider(settings: Settings) -> DiagnosticProvider:
     if settings.openai_api_key:
         return OpenAIResponsesProvider(settings)
     return DeterministicDiagnosticProvider()
+
+
+def should_use_stateful_fallback(
+    response_tool_calls: list[AgentToolCall],
+    assistant_message: str,
+    fallback_result: AgentTurnResult,
+) -> bool:
+    if response_tool_calls:
+        return False
+    if fallback_result.assistant_message == assistant_message:
+        return False
+    normalized = assistant_message.casefold().strip(" .")
+    return any(generic in normalized for generic in GENERIC_OPENAI_RESPONSES)
 
 
 def _instructions() -> str:

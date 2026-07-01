@@ -15,6 +15,7 @@ from app.services.twilio_voice import (
     gather_twiml,
     parse_twilio_form,
     parse_websocket_payload,
+    read_twilio_speech,
     say_and_hangup_twiml,
     validate_twilio_signature,
     validate_twilio_websocket_signature,
@@ -61,7 +62,7 @@ async def gather_response(
     service = TwilioVoiceService(session, settings)
     call_session = service.create_or_get_call_session(params)
     service.record_event(call_session, event_type="gather_response", payload=params)
-    speech = params.get("SpeechResult") or ""
+    speech = read_twilio_speech(params, call_session)
     if speech.strip():
         prompt = service.process_speech(call_session, speech)
         twiml = gather_twiml(prompt=prompt, action_url="/twilio/voice/gather")
