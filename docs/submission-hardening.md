@@ -3,6 +3,7 @@
 ## Reviewer Entry Points
 
 - Local reviewer smoke script: `scripts/reviewer/local_smoke.py`
+- Final readiness audit: `scripts/reviewer/final_readiness.py`
 - Local setup runbook: `docs/runbooks/local-testing.md`
 - AWS deployment runbook: `docs/runbooks/aws-testing.md`
 - Technical design: `docs/technical-design.md`
@@ -92,6 +93,8 @@ The reviewer smoke script covers:
 - [ ] Trivy secret scan passes.
 - [ ] Trivy config scan passes or findings are explicitly justified.
 - [ ] `scripts/reviewer/local_smoke.py` passes locally.
+- [ ] `scripts/reviewer/final_readiness.py` passes after live deployment gates are
+  satisfied.
 - [ ] GitHub Actions checks are green on the final PR into `dev`.
 - [ ] AWS deploy workflow runs in `plan` then `apply` mode.
 - [ ] Remote smoke checks pass.

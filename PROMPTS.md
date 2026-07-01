@@ -586,6 +586,42 @@ merged-branch deploy preflight blocker output.
 
 - `git diff --check`
 
+## 2026-07-01 Final Readiness Audit Script
+
+### Prompt
+
+The active goal continued with live AWS/GitHub provider gates still blocked, and
+the repo needed a repeatable final-readiness surface that distinguishes static
+repo readiness from live deployment readiness.
+
+### Response
+
+The assistant added `scripts/reviewer/final_readiness.py`, a read-only final
+audit script. It verifies required project files, ADR coverage, phase tracking,
+prompt-log hygiene, and the live deploy preflight result. The script exits
+nonzero until live GitHub/AWS deployment gates pass, so it fails closed instead
+of treating repo-side work as final submission readiness.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/submission-hardening.md`
+- `scripts/reviewer/README.md`
+- `scripts/reviewer/final_readiness.py`
+- `tests/test_reviewer_scripts.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 43 tests.
+- `backend/.venv/bin/ruff check scripts tests`
+- `python3.14 scripts/reviewer/final_readiness.py --json` exited nonzero as
+  expected and reported the current live blockers: invalid local `gh` auth and
+  missing AWS credentials through deploy preflight.
+- `git diff --check`
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

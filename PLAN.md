@@ -655,6 +655,7 @@ Deliverables:
 - [x] Security notes documented.
 - [x] Reviewer local smoke script.
 - [x] Reviewer script unit tests.
+- [x] Final readiness audit script that fails closed until live GitHub/AWS gates pass.
 - [x] Final backend vulnerability/dependency scan results.
 - [x] Final frontend vulnerability/dependency scan results.
 - [x] Final Terraform/security scan results.
@@ -666,6 +667,7 @@ Implementation status:
 - [x] `docs/technical-design.md` maps Tier 1, Tier 2, Tier 3, local execution, and AWS deployment to the implemented architecture.
 - [x] `docs/submission-hardening.md` documents reviewer entry points, local flow, security controls, cost controls, performance notes, known limitations, and the pre-submission checklist.
 - [x] `scripts/reviewer/local_smoke.py` exercises API health, diagnostic flow, scheduling, Twilio Gather fallback, upload link, presigned upload, upload completion, image analysis, session history, and optional frontend shell checks.
+- [x] `scripts/reviewer/final_readiness.py` checks required files, ADR coverage, phase tracking, prompt log hygiene, and live deploy preflight status.
 - [x] `scripts/reviewer/README.md` documents local prerequisites and script usage.
 - [x] `tests/test_reviewer_scripts.py` covers smoke-script helpers and an injected full-tier reviewer flow.
 - [x] `docker-compose.yml` uses a PostgreSQL 18-compatible named volume mounted at `/var/lib/postgresql`.

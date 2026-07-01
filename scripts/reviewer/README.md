@@ -83,3 +83,27 @@ the API-only upload metadata path is being checked.
 If local port `5432` is already in use, follow the alternate PostgreSQL port
 instructions in `docs/runbooks/local-testing.md` and use the same `DATABASE_URL`
 override for Alembic, seeding, and Uvicorn before running this script.
+
+## `final_readiness.py`
+
+Runs a read-only final readiness audit:
+
+- Required project files and reviewer entry points exist.
+- Required ADRs exist.
+- `PLAN.md` contains all phase tracking markers.
+- `PROMPTS.md` exists and has no pending branch marker.
+- `scripts/aws/deploy_preflight.py --json` passes.
+
+The script exits nonzero until live GitHub/AWS deployment gates are satisfied.
+This is intentional; it should fail closed rather than treating repo-side work as
+full live readiness.
+
+```bash
+python3.14 scripts/reviewer/final_readiness.py
+```
+
+Machine-readable output:
+
+```bash
+python3.14 scripts/reviewer/final_readiness.py --json
+```
