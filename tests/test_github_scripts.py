@@ -24,6 +24,10 @@ CONFIGURE_DEPLOY = _load_script_module(
     "github_configure_deploy_script",
     "configure_deploy.py",
 )
+CONFIGURE_BRANCH_PROTECTION = _load_script_module(
+    "github_configure_branch_protection_script",
+    "configure_branch_protection.py",
+)
 
 
 class ConfigureDeployTests(unittest.TestCase):
@@ -119,6 +123,76 @@ class ConfigureDeployTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(calls, [(("gh", "secret", "set", "TOKEN"), "value")])
+
+
+class ConfigureBranchProtectionTests(unittest.TestCase):
+    def test_build_plan_uses_conservative_dev_protection(self) -> None:
+        plan = CONFIGURE_BRANCH_PROTECTION.build_plan(
+            repository="buildrlab/repo",
+            branch="dev",
+            required_checks=("secret-scan", "dependency-audit", "secret-scan"),
+        )
+
+        self.assertEqual(plan.repository, "buildrlab/repo")
+        self.assertEqual(plan.branch, "dev")
+        self.assertEqual(plan.required_checks, ("secret-scan", "dependency-audit"))
+        self.assertEqual(
+            plan.command,
+            (
+                "gh",
+                "api",
+                "--method",
+                "PUT",
+                "repos/buildrlab/repo/branches/dev/protection",
+                "--input",
+                "-",
+            ),
+        )
+        self.assertEqual(
+            plan.payload["required_status_checks"],
+            {
+                "strict": True,
+                "contexts": ["secret-scan", "dependency-audit"],
+            },
+        )
+        self.assertFalse(plan.payload["enforce_admins"])
+        self.assertTrue(plan.payload["required_conversation_resolution"])
+        self.assertFalse(plan.payload["allow_force_pushes"])
+        self.assertFalse(plan.payload["allow_deletions"])
+        self.assertEqual(
+            plan.payload["required_pull_request_reviews"][
+                "required_approving_review_count"
+            ],
+            0,
+        )
+
+    def test_build_plan_can_disable_required_checks(self) -> None:
+        plan = CONFIGURE_BRANCH_PROTECTION.build_plan(
+            repository="buildrlab/repo",
+            branch="dev",
+            required_checks=(),
+        )
+
+        self.assertEqual(plan.required_checks, ())
+        self.assertIsNone(plan.payload["required_status_checks"])
+
+    def test_apply_plan_sends_json_payload_to_stdin(self) -> None:
+        plan = CONFIGURE_BRANCH_PROTECTION.build_plan(
+            repository="buildrlab/repo",
+            branch="dev",
+            required_checks=("secret-scan",),
+        )
+        calls: list[tuple[tuple[str, ...], str]] = []
+
+        def runner(args, stdin):
+            calls.append((tuple(args), stdin))
+            return 0
+
+        result = CONFIGURE_BRANCH_PROTECTION.apply_plan(plan, runner=runner)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(calls[0][0], plan.command)
+        self.assertIn('"contexts": ["secret-scan"]', calls[0][1])
 
 
 if __name__ == "__main__":
