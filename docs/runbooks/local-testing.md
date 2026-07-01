@@ -12,6 +12,37 @@ This runbook must stay simple and current. If a command changes, update this fil
 
 ## Start Local Dependencies
 
+To start the full app with Docker Compose:
+
+```bash
+scripts/local/start-app.sh
+```
+
+This starts PostgreSQL, Mailpit, MinIO, applies migrations, seeds technicians,
+creates the MinIO upload bucket, starts the FastAPI backend, and starts the
+React frontend.
+
+Useful lifecycle commands:
+
+```bash
+scripts/local/stop-containers.sh
+scripts/local/tidy-docker.sh --force
+```
+
+Run the reviewer local smoke flow after the app is up:
+
+```bash
+scripts/local/smoke-local.sh
+```
+
+For a full host-wide Docker cleanup, use the explicit destructive path:
+
+```bash
+scripts/local/tidy-docker.sh --all-docker --force
+```
+
+To start only shared dependencies for manual backend/frontend runs:
+
 ```bash
 docker compose up -d postgres mailpit minio
 ```
@@ -25,6 +56,15 @@ Local services:
 - MinIO console: `http://localhost:9001`
 
 ## Backend Checks
+
+CI-matching backend helpers:
+
+```bash
+scripts/local/lint-backend.sh
+scripts/local/test-backend.sh
+```
+
+Manual equivalent:
 
 ```bash
 cd backend
@@ -196,6 +236,14 @@ export DATABASE_URL="postgresql+psycopg://shs:shs_local_password@localhost:55432
 
 Twilio scripts do not call Twilio during local unit tests.
 
+CI-matching helper:
+
+```bash
+scripts/local/check-scripts.sh
+```
+
+Manual equivalent:
+
 ```bash
 PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests
 PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests
@@ -218,7 +266,14 @@ number, and confirm the smoke server records `voice_incoming`,
 
 ## Frontend Checks
 
-After frontend dependencies are added:
+CI-matching frontend helpers:
+
+```bash
+scripts/local/lint-frontend.sh
+scripts/local/test-frontend.sh
+```
+
+Manual equivalent:
 
 ```bash
 cd frontend
