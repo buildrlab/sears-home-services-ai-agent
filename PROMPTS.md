@@ -2167,3 +2167,37 @@ submission.
 ### Verification
 
 - `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 AWS Automated Checks Checklist Completion
+
+### Prompt
+
+The user asked to mark Section 4, AWS Automated Checks, in
+`docs/pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant marked the Section 4 AWS automated check expected results
+complete:
+
+- API health is healthy
+- diagnostic session creation works
+- Tier 1 diagnostic flow reaches `ready_to_schedule`
+- production-signed Twilio webhook checks pass
+- voice appointment proposal and booking confirmation pass
+- SES accepts the upload-link email
+- S3 object upload succeeds
+- OpenAI image analysis completes
+- session history contains the analysis event
+
+The command blocks remain in the checklist for repeatable reruns before final
+submission.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
