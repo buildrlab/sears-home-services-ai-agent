@@ -12,6 +12,14 @@ from app.agent.tools import AgentToolCall, ToolName, validate_tool_call
 from app.config import Settings
 from app.models import DiagnosticSession, DiagnosticSessionStatus
 
+GENERIC_OPENAI_RESPONSES = (
+    "i can help diagnose",
+    "i can help you diagnose",
+    "i can help diagnose the issue and schedule service",
+    "i can help diagnose and schedule",
+    "i can help with that",
+)
+
 
 @dataclass(frozen=True)
 class DiagnosticContext:
@@ -67,28 +75,10 @@ class DeterministicDiagnosticProvider:
                 status=DiagnosticSessionStatus.ACTIVE,
             )
 
-        if requests_image_upload(context.user_message):
-            if not session.customer_email:
-                return AgentTurnResult(
-                    assistant_message=(
-                        "What email address should I send the secure photo upload link to?"
-                    ),
-                    status=DiagnosticSessionStatus.ACTIVE,
-                    recommended_action="collect_upload_email",
-                )
-            tool_call = validate_tool_call(
-                ToolName.CREATE_UPLOAD_LINK.value,
-                {"session_id": session.id, "email": session.customer_email},
-            )
-            return AgentTurnResult(
-                assistant_message=(
-                    "I can send a secure appliance photo upload link to "
-                    f"{session.customer_email}."
-                ),
-                status=DiagnosticSessionStatus.ACTIVE,
-                recommended_action="send_upload_link",
-                tool_calls=[tool_call],
-            )
+        if requests_image_upload(context.user_message) or (
+            session.recommended_action == "collect_upload_email" and session.customer_email
+        ):
+            return _upload_link_result(session)
 
         tool_call = validate_tool_call(
             ToolName.FIND_TECHNICIAN_MATCHES.value,
@@ -108,6 +98,28 @@ class DeterministicDiagnosticProvider:
             recommended_action="schedule_technician",
             tool_calls=[tool_call],
         )
+
+
+def _upload_link_result(session: DiagnosticSession) -> AgentTurnResult:
+    if not session.customer_email:
+        return AgentTurnResult(
+            assistant_message="What email address should I send the secure photo upload link to?",
+            status=DiagnosticSessionStatus.ACTIVE,
+            recommended_action="collect_upload_email",
+        )
+    tool_call = validate_tool_call(
+        ToolName.CREATE_UPLOAD_LINK.value,
+        {"session_id": session.id, "email": session.customer_email},
+    )
+    return AgentTurnResult(
+        assistant_message=(
+            "I can send a secure appliance photo upload link to "
+            f"{session.customer_email}."
+        ),
+        status=DiagnosticSessionStatus.ACTIVE,
+        recommended_action="send_upload_link",
+        tool_calls=[tool_call],
+    )
 
 
 class OpenAIResponsesProvider:
@@ -130,22 +142,34 @@ class OpenAIResponsesProvider:
             reasoning={"effort": self._settings.openai_reasoning_effort},
             text={"verbosity": self._settings.openai_verbosity},
         )
-        tool_calls = list(_extract_tool_calls(getattr(response, "output", [])))
-        assistant_message = getattr(response, "output_text", "") or (
-            "I can help diagnose the issue and schedule service."
+        fallback_result = DeterministicDiagnosticProvider().generate(context)
+        response_tool_calls = list(_extract_tool_calls(getattr(response, "output", [])))
+        tool_calls = response_tool_calls or fallback_result.tool_calls
+        assistant_message = (getattr(response, "output_text", "") or "").strip()
+        if not assistant_message or (
+            should_use_stateful_fallback(response_tool_calls, assistant_message, fallback_result)
+        ):
+            assistant_message = fallback_result.assistant_message
+
+        has_scheduling_tool = any(
+            call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls
         )
+        should_use_fallback_state = not response_tool_calls
+        if has_scheduling_tool:
+            status = DiagnosticSessionStatus.READY_TO_SCHEDULE
+            recommended_action = "schedule_technician"
+        elif should_use_fallback_state:
+            status = fallback_result.status
+            recommended_action = fallback_result.recommended_action
+        else:
+            status = DiagnosticSessionStatus.ACTIVE
+            recommended_action = None
+
         return AgentTurnResult(
             assistant_message=assistant_message,
-            status=(
-                DiagnosticSessionStatus.READY_TO_SCHEDULE
-                if any(call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls)
-                else DiagnosticSessionStatus.ACTIVE
-            ),
-            recommended_action=(
-                "schedule_technician"
-                if any(call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls)
-                else None
-            ),
+            status=status,
+            safety_blocked=fallback_result.safety_blocked if should_use_fallback_state else False,
+            recommended_action=recommended_action,
             tool_calls=tool_calls,
         )
 
@@ -154,6 +178,19 @@ def build_diagnostic_provider(settings: Settings) -> DiagnosticProvider:
     if settings.openai_api_key:
         return OpenAIResponsesProvider(settings)
     return DeterministicDiagnosticProvider()
+
+
+def should_use_stateful_fallback(
+    response_tool_calls: list[AgentToolCall],
+    assistant_message: str,
+    fallback_result: AgentTurnResult,
+) -> bool:
+    if response_tool_calls:
+        return False
+    if fallback_result.assistant_message == assistant_message:
+        return False
+    normalized = assistant_message.casefold().strip(" .")
+    return any(generic in normalized for generic in GENERIC_OPENAI_RESPONSES)
 
 
 def _instructions() -> str:
@@ -175,6 +212,7 @@ def _input_messages(context: DiagnosticContext) -> list[dict[str, str]]:
         f"symptoms={', '.join(session.symptoms or []) or 'unknown'}; "
         f"zip={session.zip_code or 'unknown'}; "
         f"email={session.customer_email or 'unknown'}; "
+        f"recommended_action={session.recommended_action or 'none'}; "
         f"safety_blocked={session.safety_blocked}."
     )
     return [

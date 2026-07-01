@@ -2134,3 +2134,208 @@ submission.
 ### Verification
 
 - `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 Local Full-System Smoke Checklist Completion
+
+### Prompt
+
+The user asked to mark Section 3, Local Full-System Smoke, in
+`docs/pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant marked the Section 3 local full-system smoke inspection items
+complete:
+
+- dashboard sessions, appointments, uploads, and events load
+- diagnostic session creation works
+- diagnostic turns capture appliance, symptoms, ZIP, and scheduling intent
+- upload link creation produces an upload record
+- upload page accepts `jpg`, `png`, and `webp`
+- upload page rejects unsupported file types before requesting storage
+  credentials
+- image analysis finishes and appears in session history
+
+The command blocks remain in the checklist for repeatable reruns before final
+submission.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 AWS Automated Checks Checklist Completion
+
+### Prompt
+
+The user asked to mark Section 4, AWS Automated Checks, in
+`docs/pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant marked the Section 4 AWS automated check expected results
+complete:
+
+- API health is healthy
+- diagnostic session creation works
+- Tier 1 diagnostic flow reaches `ready_to_schedule`
+- production-signed Twilio webhook checks pass
+- voice appointment proposal and booking confirmation pass
+- SES accepts the upload-link email
+- S3 object upload succeeds
+- OpenAI image analysis completes
+- session history contains the analysis event
+
+The command blocks remain in the checklist for repeatable reruns before final
+submission.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 Twilio Gather Call Flow Retry Fix
+
+### Prompt
+
+The user reported that during a live Twilio test call, after saying
+"My refrigerator is not cooling and leaking," the agent repeatedly responded
+with "I can help diagnose and schedule a service" instead of advancing the
+flow. The user asked whether retries could be added and the flow improved.
+The user then asked to ensure the Tier 1 diagnostic, Tier 2 scheduling, safety
+escalation, and Tier 3 upload call flows all work, have retries, ask sensible
+questions, help the user where possible, and stay personable and professional.
+
+### Response
+
+The assistant improved the Twilio Gather fallback path:
+
+- OpenAI diagnostic responses now fall back to the deterministic state machine
+  when the Responses API returns no usable text or tool call.
+- Twilio Gather now posts back on empty speech and retries with state-aware
+  prompts instead of falling through to a one-shot call-back message.
+- Repeated silence receives two retry prompts, then a final hangup message.
+- The initial voice greeting now states that the agent can troubleshoot and
+  schedule a technician if needed.
+- Safety detection now catches "smells like gas" and refuses gas-line repair
+  instructions.
+- Voice upload-link tool calls now create the upload record and send or create
+  the secure upload link after the caller provides an email address.
+- Regression coverage was added for the exact split-turn refrigerator flow:
+  appliance and symptoms first, ZIP code second, no re-asking for known
+  appliance or symptoms, safe troubleshooting, and morning/afternoon scheduling
+  prompt.
+- Regression coverage was added for voice scheduling confirmation details,
+  safety escalation, Tier 3 upload-link creation after email collection, and
+  deterministic pending-upload-email state.
+
+### Files Changed
+
+- `backend/app/agent/safety.py`
+- `backend/app/agent/providers.py`
+- `backend/app/api/twilio_voice.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_diagnostics_service.py`
+- `backend/tests/test_openai_provider.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 120 tests.
+
+## 2026-07-01 Production Voice Flow Polish
+
+### Prompt
+
+The user asked to make production-grade improvements to the voice flow, ensure
+it is in tip-top shape, and make the best voice response system possible.
+
+### Response
+
+The assistant added production-grade voice-flow hardening:
+
+- Twilio Gather now accepts both speech and DTMF, with English language,
+  appliance/symptom/scheduling speech hints, a keypad finish key, and existing
+  empty-result retries.
+- Callers can enter a five-digit ZIP code by keypad.
+- Callers can press `1` to book a proposed appointment.
+- Low-confidence speech recognition results are treated as retryable input
+  instead of corrupting diagnostic state.
+- Confirmation codes are read in a voice-friendly form while preserving the
+  exact code.
+- Deterministic extraction now handles common ASR variants, spoken ZIP digits,
+  and spoken email addresses such as "customer at example dot test".
+- Generic OpenAI filler responses without tool calls are replaced by the
+  stateful deterministic prompt so the caller is asked the next sensible
+  question.
+
+### Files Changed
+
+- `backend/app/agent/extraction.py`
+- `backend/app/agent/providers.py`
+- `backend/app/api/twilio_voice.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_extraction.py`
+- `backend/tests/test_openai_provider.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 126 tests.
+
+## 2026-07-01 Low-Confidence ZIP Gather Fix
+
+### Prompt
+
+The user reported that this live prompt loop was failing:
+
+- Agent greets professionally.
+- Say: "My refrigerator is not cooling and leaking."
+- Confirm the agent does not ask again for the appliance or symptoms.
+- Say: "The ZIP code is 75201."
+- Confirm the agent provides safe troubleshooting guidance.
+- Confirm the agent asks for morning or afternoon availability.
+- Confirm no unsafe repair instructions are given.
+
+The observed behavior was that the voice agent kept repeating "I have the
+refrigerator issue noted as not cooling and leaking, please say the five digit
+ZIP code" even after the caller provided a valid ZIP code.
+
+### Response
+
+The assistant fixed the Twilio Gather ZIP loop:
+
+- Low-confidence speech is still rejected for ambiguous utterances.
+- When the call state already has appliance and symptoms, is missing only ZIP,
+  and the low-confidence transcript contains a valid ZIP, the speech reader now
+  accepts just the normalized ZIP phrase.
+- This prevents a valid ZIP transcript such as "The ZIP code is 75201" from
+  being treated as empty and routed back to the repeated ZIP retry prompt.
+- Regression coverage was added for the exact split-turn flow with a
+  low-confidence ZIP transcript, while preserving the existing retry behavior
+  for unrelated low-confidence speech.
+
+### Files Changed
+
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_twilio_voice.py` passed from
+  `backend/` with 26 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 127 tests.

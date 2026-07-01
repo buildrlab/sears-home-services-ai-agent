@@ -13,7 +13,7 @@ from twilio.request_validator import RequestValidator
 from app.config import Settings, get_settings
 from app.dependencies import get_db_session
 from app.main import create_app
-from app.models import Appointment, AppointmentStatus, CallEvent, CallSession
+from app.models import Appointment, AppointmentStatus, CallEvent, CallSession, ImageUpload
 from app.seed import seed_reference_data
 from app.services.twilio_voice import TwilioVoiceService, parse_websocket_payload
 
@@ -96,6 +96,12 @@ def test_incoming_voice_accepts_signed_webhook_and_creates_call_session(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/xml"
     assert "<Gather" in response.text
+    assert "actionOnEmptyResult" in response.text
+    assert 'input="speech dtmf"' in response.text
+    assert 'language="en-US"' in response.text
+    assert "refrigerator" in response.text
+    assert "Thanks for calling Sears Home Services" in response.text
+    assert "schedule a technician if needed" in response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.call_sid == "CA123456789"
     assert call_session.from_number == "+15551234567"
@@ -205,7 +211,52 @@ def test_gather_response_runs_deterministic_diagnostic_turn(db_session: Session)
     ]
 
 
-def test_gather_response_prompts_to_repeat_blank_speech(db_session: Session) -> None:
+def test_gather_response_split_turn_collects_zip_without_reasking_known_fields(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CASPLITTURN")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+
+    first_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling and leaking."
+    }
+    first_response = client.post(
+        "/twilio/voice/gather",
+        data=first_params,
+        headers=_signed_headers("/twilio/voice/gather", first_params),
+    )
+
+    assert first_response.status_code == 200
+    assert "What ZIP code is the appliance in" in first_response.text
+    assert "Which appliance needs help" not in first_response.text
+    assert "What is happening with your refrigerator" not in first_response.text
+
+    second_params = incoming_params | {"SpeechResult": "The ZIP code is 75201."}
+    second_response = client.post(
+        "/twilio/voice/gather",
+        data=second_params,
+        headers=_signed_headers("/twilio/voice/gather", second_params),
+    )
+
+    assert second_response.status_code == 200
+    assert "Safe checks:" in second_response.text
+    assert "Do you prefer a morning or afternoon appointment" in second_response.text
+    assert "Which appliance needs help" not in second_response.text
+    assert "What is happening with your refrigerator" not in second_response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.appliance_type == "refrigerator"
+    assert call_session.diagnostic_session.symptoms == ["not cooling", "leaking"]
+    assert call_session.diagnostic_session.zip_code == "75201"
+    assert call_session.diagnostic_session.status == "ready_to_schedule"
+
+
+def test_gather_response_retries_blank_speech_before_hanging_up(db_session: Session) -> None:
     client = _client(db_session)
     incoming_params = _twilio_params(call_sid="CABLANK")
     client.post(
@@ -214,14 +265,210 @@ def test_gather_response_prompts_to_repeat_blank_speech(db_session: Session) -> 
         headers=_signed_headers("/twilio/voice/incoming", incoming_params),
     )
 
-    response = client.post(
+    first_response = client.post(
         "/twilio/voice/gather",
         data=incoming_params,
         headers=_signed_headers("/twilio/voice/gather", incoming_params),
     )
 
+    assert first_response.status_code == 200
+    assert "<Gather" in first_response.text
+    assert "I did not catch that" in first_response.text
+    assert "Please say the appliance and what is happening" in first_response.text
+
+    second_response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/gather", incoming_params),
+    )
+
+    assert second_response.status_code == 200
+    assert "<Gather" in second_response.text
+    assert "I did not catch that" in second_response.text
+
+    final_response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/gather", incoming_params),
+    )
+
+    assert final_response.status_code == 200
+    assert "<Gather" not in final_response.text
+    assert "<Hangup" in final_response.text
+    assert "I still could not hear a response" in final_response.text
+
+
+def test_gather_response_retries_low_confidence_speech(db_session: Session) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CALOWCONF")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    low_confidence_params = incoming_params | {
+        "SpeechResult": "My washer is speaking nonsense.",
+        "Confidence": "0.12",
+    }
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=low_confidence_params,
+        headers=_signed_headers("/twilio/voice/gather", low_confidence_params),
+    )
+
     assert response.status_code == 200
-    assert "Please repeat that." in response.text
+    assert "I did not catch that" in response.text
+    assert "Please say the appliance and what is happening" in response.text
+
+
+def test_gather_response_accepts_keypad_zip_code_after_symptoms(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CADTMFZIP")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    first_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling and leaking."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=first_params,
+        headers=_signed_headers("/twilio/voice/gather", first_params),
+    )
+
+    keypad_response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params | {"Digits": "75201"},
+        headers=_signed_headers("/twilio/voice/gather", incoming_params | {"Digits": "75201"}),
+    )
+
+    assert keypad_response.status_code == 200
+    assert "Do you prefer a morning or afternoon appointment" in keypad_response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.zip_code == "75201"
+
+
+def test_gather_response_accepts_low_confidence_zip_when_zip_is_expected(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CALOWCONFZIP")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    first_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling and leaking."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=first_params,
+        headers=_signed_headers("/twilio/voice/gather", first_params),
+    )
+
+    zip_params = incoming_params | {
+        "SpeechResult": "The ZIP code is 75201.",
+        "Confidence": "0.12",
+    }
+    response = client.post(
+        "/twilio/voice/gather",
+        data=zip_params,
+        headers=_signed_headers("/twilio/voice/gather", zip_params),
+    )
+
+    assert response.status_code == 200
+    assert "Safe checks:" in response.text
+    assert "Do you prefer a morning or afternoon appointment" in response.text
+    assert "Please say the five digit ZIP code" not in response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.zip_code == "75201"
+    assert call_session.diagnostic_session.status == "ready_to_schedule"
+
+
+def test_gather_response_safety_escalation_refuses_gas_repair_steps(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CASAFETY")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    safety_params = incoming_params | {
+        "SpeechResult": "My oven smells like gas and I want to fix the gas line."
+    }
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=safety_params,
+        headers=_signed_headers("/twilio/voice/gather", safety_params),
+    )
+
+    assert response.status_code == 200
+    assert "stop using the appliance" in response.text
+    assert "emergency services or your utility provider" in response.text
+    assert "fix the gas line" not in response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.status == "safety_escalated"
+    assert call_session.diagnostic_session.safety_blocked is True
+
+
+def test_gather_response_creates_upload_link_after_collecting_email(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAUPLOAD")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    upload_request_params = incoming_params | {
+        "SpeechResult": "My refrigerator is leaking in 75201 and I can send a photo."
+    }
+
+    upload_prompt_response = client.post(
+        "/twilio/voice/gather",
+        data=upload_request_params,
+        headers=_signed_headers("/twilio/voice/gather", upload_request_params),
+    )
+
+    assert upload_prompt_response.status_code == 200
+    assert "What email address should I send the secure photo upload link to" in (
+        upload_prompt_response.text
+    )
+
+    email_params = incoming_params | {"SpeechResult": "customer@example.test"}
+    upload_link_response = client.post(
+        "/twilio/voice/gather",
+        data=email_params,
+        headers=_signed_headers("/twilio/voice/gather", email_params),
+    )
+
+    assert upload_link_response.status_code == 200
+    assert "secure photo upload link" in upload_link_response.text
+    assert "JPG, PNG, or WebP" in upload_link_response.text
+    upload = db_session.scalars(select(ImageUpload)).one()
+    assert upload.status == "pending_upload"
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.customer_email == "customer@example.test"
+    tool_names = [
+        event.tool_name
+        for event in call_session.diagnostic_session.events
+        if event.tool_name is not None
+    ]
+    assert "create_upload_link" in tool_names
 
 
 def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:
@@ -252,7 +499,7 @@ def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Ses
 
     assert proposal_response.status_code == 200
     assert "I found an appointment with Avery Johnson" in proposal_response.text
-    assert "Say yes to book this appointment" in proposal_response.text
+    assert "Say yes, or press 1, to book this appointment" in proposal_response.text
     appointment = db_session.scalars(select(Appointment)).one()
     assert appointment.status == AppointmentStatus.HELD.value
 
@@ -266,8 +513,11 @@ def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Ses
     assert confirmation_response.status_code == 200
     assert "appointment is confirmed" in confirmation_response.text
     db_session.refresh(appointment)
+    assert appointment.technician.name in confirmation_response.text
+    assert appointment.scheduled_start.strftime("%A") in confirmation_response.text
     assert appointment.status == AppointmentStatus.BOOKED.value
     assert appointment.confirmation_code is not None
+    assert appointment.confirmation_code in confirmation_response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.diagnostic_session is not None
     assert call_session.diagnostic_session.status == "scheduled"
@@ -278,6 +528,46 @@ def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Ses
     ]
     assert "propose_appointment" in tool_names
     assert "book_appointment" in tool_names
+
+
+def test_gather_response_books_proposed_appointment_with_keypad_one(
+    db_session: Session,
+) -> None:
+    seed_reference_data(db_session)
+    db_session.commit()
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CADTMFBOOK")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    diagnostic_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling in 75201."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=diagnostic_params,
+        headers=_signed_headers("/twilio/voice/gather", diagnostic_params),
+    )
+    availability_params = incoming_params | {"SpeechResult": "Monday morning works."}
+    client.post(
+        "/twilio/voice/gather",
+        data=availability_params,
+        headers=_signed_headers("/twilio/voice/gather", availability_params),
+    )
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params | {"Digits": "1"},
+        headers=_signed_headers("/twilio/voice/gather", incoming_params | {"Digits": "1"}),
+    )
+
+    assert response.status_code == 200
+    assert "appointment is confirmed" in response.text
+    assert "spoken as" in response.text
+    appointment = db_session.scalars(select(Appointment)).one()
+    assert appointment.status == AppointmentStatus.BOOKED.value
 
 
 def test_gather_response_prompts_for_alternate_availability_when_no_slot_matches(
@@ -486,7 +776,8 @@ def test_conversation_relay_websocket_handles_invalid_blank_and_unknown_events(
         websocket.send_json({"type": "text", "text": ""})
         repeat_response = websocket.receive_json()
         response_text = repeat_response.get("token")
-        assert response_text == "Please repeat that."
+        assert "I did not catch that" in response_text
+        assert "Please say the appliance and what is happening" in response_text
 
         websocket.send_json({"type": "unsupported"})
         assert websocket.receive_json() == {

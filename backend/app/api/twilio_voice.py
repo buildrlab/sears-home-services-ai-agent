@@ -15,6 +15,8 @@ from app.services.twilio_voice import (
     gather_twiml,
     parse_twilio_form,
     parse_websocket_payload,
+    read_twilio_speech,
+    say_and_hangup_twiml,
     validate_twilio_signature,
     validate_twilio_websocket_signature,
     websocket_setup_ack,
@@ -40,7 +42,10 @@ async def incoming_voice(
         twiml = conversation_relay_twiml(websocket_url=settings.twilio_conversation_relay_url)
     else:
         twiml = gather_twiml(
-            prompt="Thanks for calling Sears Home Services. Which appliance needs help today?",
+            prompt=(
+                "Thanks for calling Sears Home Services. I can help troubleshoot the issue "
+                "and schedule a technician if needed. Which appliance needs help today?"
+            ),
             action_url="/twilio/voice/gather",
         )
     return Response(content=twiml, media_type="application/xml")
@@ -57,10 +62,18 @@ async def gather_response(
     service = TwilioVoiceService(session, settings)
     call_session = service.create_or_get_call_session(params)
     service.record_event(call_session, event_type="gather_response", payload=params)
-    speech = params.get("SpeechResult") or ""
-    prompt = service.process_speech(call_session, speech) if speech else "Please repeat that."
+    speech = read_twilio_speech(params, call_session)
+    if speech.strip():
+        prompt = service.process_speech(call_session, speech)
+        twiml = gather_twiml(prompt=prompt, action_url="/twilio/voice/gather")
+    else:
+        voice_prompt = service.process_empty_speech(call_session)
+        if voice_prompt.continue_gather:
+            twiml = gather_twiml(prompt=voice_prompt.prompt, action_url="/twilio/voice/gather")
+        else:
+            twiml = say_and_hangup_twiml(prompt=voice_prompt.prompt)
     return Response(
-        content=gather_twiml(prompt=prompt, action_url="/twilio/voice/gather"),
+        content=twiml,
         media_type="application/xml",
     )
 
@@ -119,7 +132,9 @@ async def conversation_relay(
                     payload=payload,
                 )
                 response_text = (
-                    service.process_speech(call_session, text) if text else "Please repeat that."
+                    service.process_speech(call_session, text)
+                    if text.strip()
+                    else service.process_empty_speech(call_session).prompt
                 )
                 session.commit()
                 await websocket.send_json(websocket_text_response(response_text))

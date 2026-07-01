@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl
@@ -13,6 +15,8 @@ from sqlalchemy.orm import Session, selectinload
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
+from app.agent.extraction import extract_zip_code
+from app.agent.tools import AgentToolCall, ToolName
 from app.config import Settings
 from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
 from app.models import (
@@ -28,6 +32,7 @@ from app.models import (
 from app.schemas import CustomerCreate, DiagnosticSessionCreate
 from app.services.diagnostics import DiagnosticService
 from app.services.scheduling import SchedulingService
+from app.services.uploads import UploadService, UploadValidationError
 
 CONFIRMATION_TERMS = ("yes", "book", "confirm", "schedule it", "that works")
 AVAILABILITY_TERMS = (
@@ -46,6 +51,20 @@ AVAILABILITY_TERMS = (
     "saturday",
     "sunday",
 )
+MAX_EMPTY_SPEECH_RETRIES = 2
+MIN_SPEECH_CONFIDENCE = 0.35
+DTMF_BOOK_CONFIRMATION = "1"
+GATHER_HINTS = (
+    "refrigerator, fridge, freezer, washer, washing machine, dryer, dishwasher, oven, "
+    "range, stove, not cooling, leaking, not heating, not draining, not starting, "
+    "making noise, morning, afternoon, Monday morning, yes, book it, upload photo"
+)
+
+
+@dataclass(frozen=True)
+class VoicePrompt:
+    prompt: str
+    continue_gather: bool = True
 
 
 class TwilioVoiceService:
@@ -153,6 +172,12 @@ class TwilioVoiceService:
         diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
             diagnostic_id
         )
+        upload_message = self._create_upload_link_if_requested(
+            diagnostic_session,
+            result.tool_calls,
+        )
+        if upload_message is not None:
+            return upload_message
         if (
             diagnostic_session.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value
             and _has_availability_preference(speech)
@@ -161,6 +186,25 @@ class TwilioVoiceService:
             if proposal is not None:
                 return proposal
         return result.assistant_message
+
+    def process_empty_speech(self, call_session: CallSession) -> VoicePrompt:
+        empty_attempts = self._empty_speech_attempts(call_session)
+        if empty_attempts > MAX_EMPTY_SPEECH_RETRIES:
+            return VoicePrompt(
+                prompt=(
+                    "I still could not hear a response. Please call back when you are ready, "
+                    "or contact Sears Home Services online to schedule service."
+                ),
+                continue_gather=False,
+            )
+
+        diagnostic_session = call_session.diagnostic_session
+        if diagnostic_session is None and call_session.diagnostic_session_id is not None:
+            diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
+                call_session.diagnostic_session_id
+            )
+
+        return VoicePrompt(prompt=_empty_retry_prompt(diagnostic_session))
 
     def _book_latest_proposal(
         self,
@@ -241,6 +285,65 @@ class TwilioVoiceService:
         self._session.flush()
         return message
 
+    def _create_upload_link_if_requested(
+        self,
+        diagnostic_session: DiagnosticSession,
+        tool_calls: list[AgentToolCall],
+    ) -> str | None:
+        upload_tool_call = next(
+            (
+                tool_call
+                for tool_call in tool_calls
+                if tool_call.name == ToolName.CREATE_UPLOAD_LINK
+            ),
+            None,
+        )
+        if upload_tool_call is None:
+            return None
+
+        email = upload_tool_call.arguments.get("email") or diagnostic_session.customer_email
+        if not isinstance(email, str) or not email.strip():
+            message = "What email address should I send the secure photo upload link to?"
+            self._add_diagnostic_event(
+                diagnostic_session,
+                role=DiagnosticEventRole.ASSISTANT,
+                content=message,
+            )
+            self._session.flush()
+            return message
+
+        try:
+            result = UploadService(self._session, self._settings).create_upload_link(
+                session_id=diagnostic_session.id,
+                email=email,
+            )
+        except UploadValidationError:
+            message = (
+                "I did not catch a valid email address. Please say the full email address "
+                "for the secure photo upload link."
+            )
+        else:
+            if result.email_sent:
+                message = (
+                    "I sent a secure photo upload link to that email address. "
+                    "Please open it and upload a clear JPG, PNG, or WebP photo of the appliance. "
+                    "After it uploads, I will review it and add the analysis to your session."
+                )
+            else:
+                message = (
+                    "I created a secure photo upload link, but email delivery needs attention. "
+                    f"The upload link is {result.upload_url}. "
+                    "Please upload a clear JPG, PNG, or WebP photo of the appliance."
+                )
+
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.ASSISTANT,
+            content=message,
+        )
+        self._session.flush()
+        return message
+
     def _add_diagnostic_event(
         self,
         diagnostic_session: DiagnosticSession,
@@ -259,6 +362,24 @@ class TwilioVoiceService:
                 tool_payload=tool_payload,
             )
         )
+
+    def _empty_speech_attempts(self, call_session: CallSession) -> int:
+        statement = (
+            select(CallEvent)
+            .where(CallEvent.call_session_id == call_session.id)
+            .where(CallEvent.event_type == "gather_response")
+            .order_by(CallEvent.id)
+        )
+        attempts = 0
+        for event in self._session.scalars(statement):
+            speech_result = event.payload.get("SpeechResult")
+            if (
+                not isinstance(speech_result, str)
+                or not speech_result.strip()
+                or not _speech_confidence_is_acceptable(event.payload)
+            ):
+                attempts += 1
+        return attempts
 
 
 async def parse_twilio_form(request: Request) -> dict[str, str]:
@@ -318,13 +439,25 @@ def validate_twilio_websocket_signature(websocket: WebSocket, settings: Settings
 def gather_twiml(*, prompt: str, action_url: str) -> str:
     response = VoiceResponse()
     gather = response.gather(
-        input="speech",
+        input="speech dtmf",
         action=action_url,
         method="POST",
+        action_on_empty_result=True,
+        finish_on_key="#",
+        hints=GATHER_HINTS,
+        language="en-US",
         speech_timeout="auto",
+        timeout=5,
     )
     gather.say(prompt)
-    response.say("I did not hear a response. Please call again when you are ready.")
+    response.redirect(action_url, method="POST")
+    return str(response)
+
+
+def say_and_hangup_twiml(*, prompt: str) -> str:
+    response = VoiceResponse()
+    response.say(prompt)
+    response.hangup()
     return str(response)
 
 
@@ -384,6 +517,79 @@ def _has_availability_preference(text: str) -> bool:
     return any(term in normalized for term in AVAILABILITY_TERMS)
 
 
+def read_twilio_speech(params: dict[str, str], call_session: CallSession) -> str:
+    digits = _dtmf_digits(params)
+    if len(digits) == 5:
+        return f"The ZIP code is {digits}."
+    if digits == DTMF_BOOK_CONFIRMATION and call_session.diagnostic_session is not None:
+        if _latest_proposed_appointment_id(call_session.diagnostic_session) is not None:
+            return "Yes, book it."
+
+    speech = (params.get("SpeechResult") or "").strip()
+    if not speech:
+        return ""
+    if not _speech_confidence_is_acceptable(params):
+        zip_code = _expected_zip_from_low_confidence_speech(speech, call_session)
+        if zip_code is not None:
+            return f"The ZIP code is {zip_code}."
+        return ""
+    return speech
+
+
+def _dtmf_digits(params: dict[str, str]) -> str:
+    return re.sub(r"\D", "", params.get("Digits") or "")
+
+
+def _speech_confidence_is_acceptable(payload: dict[str, object]) -> bool:
+    raw_confidence = payload.get("Confidence")
+    if raw_confidence is None:
+        return True
+    try:
+        return float(str(raw_confidence)) >= MIN_SPEECH_CONFIDENCE
+    except ValueError:
+        return True
+
+
+def _expected_zip_from_low_confidence_speech(
+    speech: str,
+    call_session: CallSession,
+) -> str | None:
+    diagnostic_session = call_session.diagnostic_session
+    if diagnostic_session is None:
+        return None
+    if (
+        diagnostic_session.zip_code
+        or not diagnostic_session.appliance_type
+        or not diagnostic_session.symptoms
+    ):
+        return None
+    return extract_zip_code(speech)
+
+
+def _empty_retry_prompt(diagnostic_session: DiagnosticSession | None) -> str:
+    if diagnostic_session is None or not diagnostic_session.appliance_type:
+        return (
+            "I did not catch that. Please say the appliance and what is happening, "
+            "for example, my refrigerator is not cooling."
+        )
+    if not diagnostic_session.symptoms:
+        return (
+            f"I heard {diagnostic_session.appliance_type}. What is happening with it? "
+            "For example, say it is leaking or not cooling."
+        )
+    if not diagnostic_session.zip_code:
+        return (
+            f"I have the {diagnostic_session.appliance_type} issue noted as "
+            f"{', '.join(diagnostic_session.symptoms)}. Please say the five digit ZIP code."
+        )
+    if diagnostic_session.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value:
+        return (
+            "I have enough detail to schedule service. Please say morning or afternoon, "
+            "or say a weekday like Monday morning."
+        )
+    return "I did not catch that. Please say that again in a short phrase."
+
+
 def _latest_proposed_appointment_id(diagnostic_session: DiagnosticSession) -> int | None:
     for event in reversed(diagnostic_session.events):
         if event.tool_name != "propose_appointment" or not event.tool_payload:
@@ -423,18 +629,25 @@ def _appointment_proposal_message(appointment: Appointment) -> str:
     return (
         "I found an appointment with "
         f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
-        "Say yes to book this appointment, or tell me another morning or afternoon."
+        "Say yes, or press 1, to book this appointment. "
+        "You can also tell me another morning or afternoon."
     )
 
 
 def _booking_confirmation_message(appointment: Appointment) -> str:
+    confirmation_code = appointment.confirmation_code or "pending"
     return (
         "Your Sears Home Services appointment is confirmed with "
         f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
-        f"Your confirmation code is {appointment.confirmation_code}. "
+        f"Your confirmation code is {confirmation_code}, spoken as "
+        f"{_format_code_for_voice(confirmation_code)}. "
         "Please keep the area around the appliance accessible for the technician."
     )
 
 
 def _format_voice_datetime(value: datetime) -> str:
     return value.strftime("%A at %-I:%M %p")
+
+
+def _format_code_for_voice(value: str) -> str:
+    return " ".join(value)

@@ -74,6 +74,14 @@ Start the local stack:
 scripts/local/start-app.sh
 ```
 
+Confirm all services are up (the frontend takes ~60 s for `pnpm install` on first run):
+
+```bash
+docker compose -p shs-ai-agent-local \
+  -f docker-compose.yml -f docker-compose.local.yml \
+  ps
+```
+
 Run the local reviewer smoke:
 
 ```bash
@@ -84,13 +92,13 @@ python3.14 scripts/reviewer/local_smoke.py \
 
 Open the local app and manually inspect:
 
-- [ ] Dashboard loads sessions, appointments, uploads, and events.
-- [ ] Creating a diagnostic session works.
-- [ ] Sending a diagnostic turn captures appliance, symptoms, ZIP, and scheduling intent.
-- [ ] Sending an upload link creates an upload record.
-- [ ] Upload page accepts `jpg`, `png`, or `webp`.
-- [ ] Upload page rejects unsupported file types before requesting storage credentials.
-- [ ] Image analysis finishes and appears in session history.
+- [x] Dashboard loads sessions, appointments, uploads, and events.
+- [x] Creating a diagnostic session works.
+- [x] Sending a diagnostic turn captures appliance, symptoms, ZIP, and scheduling intent.
+- [x] Sending an upload link creates an upload record.
+- [x] Upload page accepts `jpg`, `png`, or `webp`.
+- [x] Upload page rejects unsupported file types before requesting storage credentials.
+- [x] Image analysis finishes and appears in session history.
 
 Stop or tidy the local stack:
 
@@ -127,15 +135,15 @@ AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py --json
 
 Expected result:
 
-- [ ] API health is healthy.
-- [ ] Diagnostic session creation works.
-- [ ] Tier 1 diagnostic flow reaches `ready_to_schedule`.
-- [ ] Production-signed Twilio webhook checks pass.
-- [ ] Voice appointment proposal and booking confirmation pass.
-- [ ] SES accepts the upload-link email.
-- [ ] S3 object upload succeeds.
-- [ ] OpenAI image analysis completes.
-- [ ] Session history contains the analysis event.
+- [x] API health is healthy.
+- [x] Diagnostic session creation works.
+- [x] Tier 1 diagnostic flow reaches `ready_to_schedule`.
+- [x] Production-signed Twilio webhook checks pass.
+- [x] Voice appointment proposal and booking confirmation pass.
+- [x] SES accepts the upload-link email.
+- [x] S3 object upload succeeds.
+- [x] OpenAI image analysis completes.
+- [x] Session history contains the analysis event.
 
 Run deployed Playwright:
 
