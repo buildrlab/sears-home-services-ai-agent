@@ -28,6 +28,7 @@ Local services:
 
 ```bash
 cd backend
+cp .env.example .env
 python3.14 -m pip install -e ".[dev]"
 python -W error -m pytest
 ruff check .

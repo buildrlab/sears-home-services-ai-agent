@@ -57,6 +57,7 @@ Run backend checks:
 
 ```bash
 cd backend
+cp .env.example .env
 python3.14 -m pip install -e ".[dev]"
 python -W error -m pytest
 ruff check .
@@ -168,6 +169,19 @@ AWS validation must run after deployment and include API smoke tests, frontend P
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.
 See [GitHub Branch Protection Runbook](docs/runbooks/github-branch-protection.md) for recommended merge gates.
+See [Technical Design](docs/technical-design.md) and [Submission Hardening](docs/submission-hardening.md) for reviewer-facing architecture, security, cost, and known-limitations notes.
+
+## Reviewer Smoke Test
+
+After starting the local backend and dependencies, run the reviewer smoke flow:
+
+```bash
+python3.14 scripts/reviewer/local_smoke.py \
+  --api-base-url http://127.0.0.1:8000
+```
+
+Add `--frontend-base-url http://127.0.0.1:5173` when the Vite frontend is also
+running. See [Reviewer Scripts](scripts/reviewer/README.md).
 
 ## Twilio Access
 

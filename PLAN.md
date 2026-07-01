@@ -77,7 +77,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
 | Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, and branch protection recommendations are merged into `dev` through PR #12. Live AWS deployment is blocked on GitHub deployment configuration and AWS credentials. | Configure GitHub environment secrets/variables, refresh local GitHub/AWS auth if Codex should run the deploy, then run the AWS deploy workflow. |
-| Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
+| Phase 9: Submission Hardening | In Progress | Repo-side hardening docs, reviewer local smoke script, script tests, full local checks, dependency audits, Terraform validation, Trivy scans, Docker Compose validation, and local reviewer smoke are complete on the Phase 9 branch. Live AWS reviewer gates remain blocked on credentials/configuration. | Push/PR/merge Phase 9 repo-side hardening, then complete live AWS reviewer gates after credentials are available. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
 
@@ -637,14 +637,44 @@ Exit criteria:
 
 Deliverables:
 
-- Technical design document.
-- ADR completion.
-- Final README polish.
-- Known limitations.
-- Cost notes.
-- Security notes.
-- Reviewer test script.
-- Final vulnerability/dependency scan results.
+- [x] Technical design document.
+- [x] ADR index/completion references through the technical design.
+- [x] Final README links for design, submission hardening, and reviewer smoke tests.
+- [x] Known limitations documented.
+- [x] Cost notes documented.
+- [x] Security notes documented.
+- [x] Reviewer local smoke script.
+- [x] Reviewer script unit tests.
+- [x] Final backend vulnerability/dependency scan results.
+- [x] Final frontend vulnerability/dependency scan results.
+- [x] Final Terraform/security scan results.
+- [x] Final local reviewer smoke test result.
+- [ ] Final AWS smoke, Twilio, SES, upload, image-analysis, and log-review results.
+
+Implementation status:
+
+- [x] `docs/technical-design.md` maps Tier 1, Tier 2, Tier 3, local execution, and AWS deployment to the implemented architecture.
+- [x] `docs/submission-hardening.md` documents reviewer entry points, local flow, security controls, cost controls, performance notes, known limitations, and the pre-submission checklist.
+- [x] `scripts/reviewer/local_smoke.py` exercises API health, diagnostic flow, scheduling, Twilio Gather fallback, upload link, presigned upload, upload completion, image analysis, session history, and optional frontend shell checks.
+- [x] `scripts/reviewer/README.md` documents local prerequisites and script usage.
+- [x] `tests/test_reviewer_scripts.py` covers smoke-script helpers and an injected full-tier reviewer flow.
+- [x] `docker-compose.yml` uses a PostgreSQL 18-compatible named volume mounted at `/var/lib/postgresql`.
+
+Latest local verification:
+
+- 2026-07-01: `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests` passed.
+- 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 26 tests.
+- 2026-07-01: `backend/.venv/bin/ruff check scripts tests` passed.
+- 2026-07-01: `git diff --check` passed.
+- 2026-07-01: Backend `.venv/bin/python -W error -m pytest` passed with 60 tests.
+- 2026-07-01: Backend `.venv/bin/ruff check .` passed.
+- 2026-07-01: Backend `.venv/bin/pip-audit` reported no known vulnerabilities.
+- 2026-07-01: Frontend `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm audit --audit-level=moderate`, and `PW_PORT=5174 pnpm test:e2e` passed with Node 26.4.0 and pnpm 11.9.0.
+- 2026-07-01: `docker compose config --quiet` passed after the PostgreSQL 18 volume mount fix.
+- 2026-07-01: `scripts/terraform/validate.sh` passed for all stacks.
+- 2026-07-01: Trivy `0.72.0` config scan passed with no HIGH/CRITICAL findings.
+- 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
+- 2026-07-01: `scripts/reviewer/local_smoke.py --api-base-url http://127.0.0.1:8000` passed against a temporary PostgreSQL 18 database, Mailpit, MinIO, and local Uvicorn backend; it verified Tier 1 diagnostics, Tier 2 appointment booking, Twilio Gather fallback, Tier 3 object upload, deterministic image analysis, and session history.
 
 Exit criteria:
 
