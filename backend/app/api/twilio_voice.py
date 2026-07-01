@@ -41,7 +41,10 @@ async def incoming_voice(
         twiml = conversation_relay_twiml(websocket_url=settings.twilio_conversation_relay_url)
     else:
         twiml = gather_twiml(
-            prompt="Thanks for calling Sears Home Services. Which appliance needs help today?",
+            prompt=(
+                "Thanks for calling Sears Home Services. I can help troubleshoot the issue "
+                "and schedule a technician if needed. Which appliance needs help today?"
+            ),
             action_url="/twilio/voice/gather",
         )
     return Response(content=twiml, media_type="application/xml")

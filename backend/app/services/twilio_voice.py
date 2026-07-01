@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
+from app.agent.tools import AgentToolCall, ToolName
 from app.config import Settings
 from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
 from app.models import (
@@ -29,6 +30,7 @@ from app.models import (
 from app.schemas import CustomerCreate, DiagnosticSessionCreate
 from app.services.diagnostics import DiagnosticService
 from app.services.scheduling import SchedulingService
+from app.services.uploads import UploadService, UploadValidationError
 
 CONFIRMATION_TERMS = ("yes", "book", "confirm", "schedule it", "that works")
 AVAILABILITY_TERMS = (
@@ -161,6 +163,12 @@ class TwilioVoiceService:
         diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
             diagnostic_id
         )
+        upload_message = self._create_upload_link_if_requested(
+            diagnostic_session,
+            result.tool_calls,
+        )
+        if upload_message is not None:
+            return upload_message
         if (
             diagnostic_session.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value
             and _has_availability_preference(speech)
@@ -260,6 +268,65 @@ class TwilioVoiceService:
             tool_payload=_appointment_payload(appointment),
         )
         message = _appointment_proposal_message(appointment)
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.ASSISTANT,
+            content=message,
+        )
+        self._session.flush()
+        return message
+
+    def _create_upload_link_if_requested(
+        self,
+        diagnostic_session: DiagnosticSession,
+        tool_calls: list[AgentToolCall],
+    ) -> str | None:
+        upload_tool_call = next(
+            (
+                tool_call
+                for tool_call in tool_calls
+                if tool_call.name == ToolName.CREATE_UPLOAD_LINK
+            ),
+            None,
+        )
+        if upload_tool_call is None:
+            return None
+
+        email = upload_tool_call.arguments.get("email") or diagnostic_session.customer_email
+        if not isinstance(email, str) or not email.strip():
+            message = "What email address should I send the secure photo upload link to?"
+            self._add_diagnostic_event(
+                diagnostic_session,
+                role=DiagnosticEventRole.ASSISTANT,
+                content=message,
+            )
+            self._session.flush()
+            return message
+
+        try:
+            result = UploadService(self._session, self._settings).create_upload_link(
+                session_id=diagnostic_session.id,
+                email=email,
+            )
+        except UploadValidationError:
+            message = (
+                "I did not catch a valid email address. Please say the full email address "
+                "for the secure photo upload link."
+            )
+        else:
+            if result.email_sent:
+                message = (
+                    "I sent a secure photo upload link to that email address. "
+                    "Please open it and upload a clear JPG, PNG, or WebP photo of the appliance. "
+                    "After it uploads, I will review it and add the analysis to your session."
+                )
+            else:
+                message = (
+                    "I created a secure photo upload link, but email delivery needs attention. "
+                    f"The upload link is {result.upload_url}. "
+                    "Please upload a clear JPG, PNG, or WebP photo of the appliance."
+                )
+
         self._add_diagnostic_event(
             diagnostic_session,
             role=DiagnosticEventRole.ASSISTANT,

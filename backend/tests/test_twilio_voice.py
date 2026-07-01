@@ -13,7 +13,7 @@ from twilio.request_validator import RequestValidator
 from app.config import Settings, get_settings
 from app.dependencies import get_db_session
 from app.main import create_app
-from app.models import Appointment, AppointmentStatus, CallEvent, CallSession
+from app.models import Appointment, AppointmentStatus, CallEvent, CallSession, ImageUpload
 from app.seed import seed_reference_data
 from app.services.twilio_voice import TwilioVoiceService, parse_websocket_payload
 
@@ -97,6 +97,8 @@ def test_incoming_voice_accepts_signed_webhook_and_creates_call_session(
     assert response.headers["content-type"] == "application/xml"
     assert "<Gather" in response.text
     assert "actionOnEmptyResult" in response.text
+    assert "Thanks for calling Sears Home Services" in response.text
+    assert "schedule a technician if needed" in response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.call_sid == "CA123456789"
     assert call_session.from_number == "+15551234567"
@@ -293,6 +295,84 @@ def test_gather_response_retries_blank_speech_before_hanging_up(db_session: Sess
     assert "I still could not hear a response" in final_response.text
 
 
+def test_gather_response_safety_escalation_refuses_gas_repair_steps(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CASAFETY")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    safety_params = incoming_params | {
+        "SpeechResult": "My oven smells like gas and I want to fix the gas line."
+    }
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=safety_params,
+        headers=_signed_headers("/twilio/voice/gather", safety_params),
+    )
+
+    assert response.status_code == 200
+    assert "stop using the appliance" in response.text
+    assert "emergency services or your utility provider" in response.text
+    assert "fix the gas line" not in response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.status == "safety_escalated"
+    assert call_session.diagnostic_session.safety_blocked is True
+
+
+def test_gather_response_creates_upload_link_after_collecting_email(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAUPLOAD")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    upload_request_params = incoming_params | {
+        "SpeechResult": "My refrigerator is leaking in 75201 and I can send a photo."
+    }
+
+    upload_prompt_response = client.post(
+        "/twilio/voice/gather",
+        data=upload_request_params,
+        headers=_signed_headers("/twilio/voice/gather", upload_request_params),
+    )
+
+    assert upload_prompt_response.status_code == 200
+    assert "What email address should I send the secure photo upload link to" in (
+        upload_prompt_response.text
+    )
+
+    email_params = incoming_params | {"SpeechResult": "customer@example.test"}
+    upload_link_response = client.post(
+        "/twilio/voice/gather",
+        data=email_params,
+        headers=_signed_headers("/twilio/voice/gather", email_params),
+    )
+
+    assert upload_link_response.status_code == 200
+    assert "secure photo upload link" in upload_link_response.text
+    assert "JPG, PNG, or WebP" in upload_link_response.text
+    upload = db_session.scalars(select(ImageUpload)).one()
+    assert upload.status == "pending_upload"
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.customer_email == "customer@example.test"
+    tool_names = [
+        event.tool_name
+        for event in call_session.diagnostic_session.events
+        if event.tool_name is not None
+    ]
+    assert "create_upload_link" in tool_names
+
+
 def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:
     seed_reference_data(db_session)
     db_session.commit()
@@ -335,8 +415,11 @@ def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Ses
     assert confirmation_response.status_code == 200
     assert "appointment is confirmed" in confirmation_response.text
     db_session.refresh(appointment)
+    assert appointment.technician.name in confirmation_response.text
+    assert appointment.scheduled_start.strftime("%A") in confirmation_response.text
     assert appointment.status == AppointmentStatus.BOOKED.value
     assert appointment.confirmation_code is not None
+    assert appointment.confirmation_code in confirmation_response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.diagnostic_session is not None
     assert call_session.diagnostic_session.status == "scheduled"
