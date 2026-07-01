@@ -74,6 +74,21 @@ describe("UploadPage", () => {
     ).toBe(false);
   });
 
+  it("requires a file before upload", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(uploadResponse));
+    const user = userEvent.setup();
+
+    render(<UploadPage token="token-123" />);
+
+    await screen.findByRole("heading", { name: /appliance image upload/i });
+    await user.click(screen.getByRole("button", { name: /upload image/i }));
+
+    expect(screen.getByText(/choose an appliance image before uploading/i)).toBeVisible();
+    expect(
+      fetchMock.mock.calls.some(([input]) => requestUrl(input).includes("presigned-post"))
+    ).toBe(false);
+  });
+
   it("uploads an image through a presigned storage form", async () => {
     fetchMock.mockImplementation((input, init) => {
       const url = requestUrl(input);

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -202,3 +202,55 @@ def test_upload_api_rejects_unsupported_content_type(db_session: Session) -> Non
     )
 
     assert response.status_code == 422
+
+
+def test_upload_api_returns_404_for_missing_resources(db_session: Session) -> None:
+    client, _, _, _ = _client(db_session)
+
+    assert client.post(
+        "/diagnostics/sessions/999/upload-link",
+        json={"email": "caller@example.test"},
+    ).status_code == 404
+    assert client.get("/uploads/not-a-token").status_code == 404
+    assert client.post(
+        "/uploads/not-a-token/presigned-post",
+        json={"filename": "fridge.png", "content_type": "image/png", "byte_size": 512},
+    ).status_code == 404
+    assert client.post(
+        "/uploads/not-a-token/complete",
+        json={"filename": "fridge.png", "content_type": "image/png", "byte_size": 512},
+    ).status_code == 404
+    assert client.get("/diagnostics/sessions/999/uploads").status_code == 404
+    assert client.post("/diagnostics/uploads/999/analysis").status_code == 404
+
+
+def test_upload_api_returns_410_for_expired_upload_token(db_session: Session) -> None:
+    client, _, _, _ = _client(db_session)
+    session_response = client.post("/diagnostics/sessions", json={})
+    session_id = session_response.json()["id"]
+    link_response = client.post(
+        f"/diagnostics/sessions/{session_id}/upload-link",
+        json={"email": "caller@example.test"},
+    )
+    token = link_response.json()["upload_url"].rsplit("/", 1)[-1]
+    upload = client.get(f"/uploads/{token}").json()
+
+    # Expire the persisted row directly so all token-using endpoints exercise
+    # the route-level 410 mapping.
+    from app.models import ImageUpload
+
+    persisted_upload = db_session.get(ImageUpload, upload["id"])
+    assert persisted_upload is not None
+    persisted_upload.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    db_session.flush()
+    db_session.commit()
+
+    assert client.get(f"/uploads/{token}").status_code == 410
+    assert client.post(
+        f"/uploads/{token}/presigned-post",
+        json={"filename": "fridge.png", "content_type": "image/png", "byte_size": 512},
+    ).status_code == 410
+    assert client.post(
+        f"/uploads/{token}/complete",
+        json={"filename": "fridge.png", "content_type": "image/png", "byte_size": 512},
+    ).status_code == 410

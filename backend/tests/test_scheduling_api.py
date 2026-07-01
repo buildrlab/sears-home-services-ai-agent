@@ -85,6 +85,34 @@ def test_appointment_hold_book_and_fetch_flow(db_session: Session) -> None:
     assert fetch_response.json()["confirmation_code"] == book_response.json()["confirmation_code"]
 
 
+def test_appointment_cancel_and_list_filter_flow(db_session: Session) -> None:
+    client = _client(db_session)
+    hold_response = client.post("/appointments/holds", json=_hold_payload())
+    appointment_id = hold_response.json()["id"]
+
+    cancel_response = client.post(f"/appointments/{appointment_id}/cancel")
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancelled"
+
+    cancelled_list = client.get("/appointments", params={"status": "cancelled"})
+    assert cancelled_list.status_code == 200
+    assert [item["id"] for item in cancelled_list.json()["appointments"]] == [appointment_id]
+
+    booked_list = client.get("/appointments", params={"status": "booked"})
+    assert booked_list.status_code == 200
+    assert booked_list.json() == {"appointments": []}
+
+
+def test_appointment_endpoints_return_404_for_missing_appointment(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+
+    assert client.get("/appointments/999").status_code == 404
+    assert client.post("/appointments/999/book").status_code == 404
+    assert client.post("/appointments/999/cancel").status_code == 404
+
+
 def test_appointment_hold_endpoint_conflicts_on_double_book(db_session: Session) -> None:
     client = _client(db_session)
 
@@ -105,6 +133,18 @@ def test_appointment_hold_endpoint_rejects_naive_datetime(db_session: Session) -
     client = _client(db_session)
     payload = _hold_payload()
     payload["scheduled_start"] = "2026-07-06T08:00:00"
+
+    response = client.post("/appointments/holds", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_appointment_hold_endpoint_rejects_technician_mismatch(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    payload = _hold_payload()
+    payload["zip_code"] = "99999"
 
     response = client.post("/appointments/holds", json=payload)
 

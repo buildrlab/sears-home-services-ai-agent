@@ -1961,3 +1961,79 @@ post-apply ECS task definition revision.
 - `actionlint .github/workflows/aws-deploy.yml` passed.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
+
+## 2026-07-01 Full Coverage and Original PDF Verification
+
+### Prompt
+
+The user asked: "can you run all tests, edxpand test coverage make sure every
+single case, happy path and edge case is tested, make sure everything in the
+original pdf is implemented. do you understand?"
+
+### Response
+
+The assistant treated the request as a coverage and requirements audit rather
+than a simple test run. The assistant rechecked the original SHS take-home PDF
+and verified the implemented scope against Tier 1 inbound voice diagnostics,
+Tier 2 technician scheduling, Tier 3 email/upload/computer-vision diagnosis,
+Docker Compose, live phone, README, technical design, and repository
+deliverables.
+
+The assistant expanded automated coverage for backend provider adapters,
+deterministic and OpenAI diagnostic providers, extractor empty states, tool
+schema JSON validation, scheduling hold lifecycle edge cases, API 404/410
+paths, Twilio signed and local-unsigned webhooks, blank speech, missing CallSid,
+detached call sessions, ConversationRelay invalid/blank/unsupported payloads,
+upload-token expiry, and vision worker CLI/SQS paths. The assistant also fixed
+the Dashboard unit-test mock so it handles concurrent data loading by request
+URL instead of relying on fragile request ordering.
+
+### Files Changed
+
+- `backend/tests/test_agent_tools.py`
+- `backend/tests/test_diagnostics_api.py`
+- `backend/tests/test_openai_provider.py`
+- `backend/tests/test_provider_adapters.py`
+- `backend/tests/test_scheduling_api.py`
+- `backend/tests/test_scheduling_service.py`
+- `backend/tests/test_twilio_voice.py`
+- `backend/tests/test_uploads_api.py`
+- `backend/tests/test_vision_worker.py`
+- `frontend/src/api.test.ts`
+- `frontend/src/components/Dashboard.test.tsx`
+- `frontend/src/components/UploadPage.test.tsx`
+- `frontend/src/format.test.ts`
+- `frontend/src/routes.test.ts`
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- Backend `.venv/bin/python -W error -m pytest --cov=app --cov-report=term-missing`
+  passed with 116 tests and 95% `app` coverage.
+- Backend `.venv/bin/ruff check .` passed.
+- Root `python3.14 -m unittest discover -s tests` passed with 65 tests.
+- Root `backend/.venv/bin/ruff check scripts tests` passed.
+- Frontend `corepack pnpm lint`, `corepack pnpm typecheck`,
+  `corepack pnpm test`, and `corepack pnpm build` passed with Node 26 and pnpm
+  11.9.0.
+- Local Playwright passed with `PW_PORT=5201 corepack pnpm test:e2e` and 6
+  Chromium tests.
+- Deployed Playwright passed with
+  `PLAYWRIGHT_BASE_URL=https://shs.buildrlab.com corepack pnpm test:e2e` and 6
+  Chromium tests.
+- Backend `.venv/bin/pip-audit` reported no known vulnerabilities.
+- Frontend `corepack pnpm audit --audit-level=moderate` reported no known
+  vulnerabilities.
+- `actionlint .github/workflows/*.yml` passed.
+- `docker compose config --quiet` passed for the production Compose file.
+- `docker compose -f docker-compose.yml -f docker-compose.local.yml config --quiet`
+  passed for the documented local Compose project.
+- `scripts/terraform/validate.sh` passed for all Terraform stacks after
+  provider-registry network access was allowed.
+- `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
+  passed.
+- `AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py --json` passed
+  with deployed API health, diagnostic state, production-signed Twilio webhooks,
+  SES email acceptance, Tier 3 S3 object upload, OpenAI image analysis, and
+  persisted session-history analysis verification.
