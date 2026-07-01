@@ -67,28 +67,10 @@ class DeterministicDiagnosticProvider:
                 status=DiagnosticSessionStatus.ACTIVE,
             )
 
-        if requests_image_upload(context.user_message):
-            if not session.customer_email:
-                return AgentTurnResult(
-                    assistant_message=(
-                        "What email address should I send the secure photo upload link to?"
-                    ),
-                    status=DiagnosticSessionStatus.ACTIVE,
-                    recommended_action="collect_upload_email",
-                )
-            tool_call = validate_tool_call(
-                ToolName.CREATE_UPLOAD_LINK.value,
-                {"session_id": session.id, "email": session.customer_email},
-            )
-            return AgentTurnResult(
-                assistant_message=(
-                    "I can send a secure appliance photo upload link to "
-                    f"{session.customer_email}."
-                ),
-                status=DiagnosticSessionStatus.ACTIVE,
-                recommended_action="send_upload_link",
-                tool_calls=[tool_call],
-            )
+        if requests_image_upload(context.user_message) or (
+            session.recommended_action == "collect_upload_email" and session.customer_email
+        ):
+            return _upload_link_result(session)
 
         tool_call = validate_tool_call(
             ToolName.FIND_TECHNICIAN_MATCHES.value,
@@ -108,6 +90,28 @@ class DeterministicDiagnosticProvider:
             recommended_action="schedule_technician",
             tool_calls=[tool_call],
         )
+
+
+def _upload_link_result(session: DiagnosticSession) -> AgentTurnResult:
+    if not session.customer_email:
+        return AgentTurnResult(
+            assistant_message="What email address should I send the secure photo upload link to?",
+            status=DiagnosticSessionStatus.ACTIVE,
+            recommended_action="collect_upload_email",
+        )
+    tool_call = validate_tool_call(
+        ToolName.CREATE_UPLOAD_LINK.value,
+        {"session_id": session.id, "email": session.customer_email},
+    )
+    return AgentTurnResult(
+        assistant_message=(
+            "I can send a secure appliance photo upload link to "
+            f"{session.customer_email}."
+        ),
+        status=DiagnosticSessionStatus.ACTIVE,
+        recommended_action="send_upload_link",
+        tool_calls=[tool_call],
+    )
 
 
 class OpenAIResponsesProvider:
@@ -185,6 +189,7 @@ def _input_messages(context: DiagnosticContext) -> list[dict[str, str]]:
         f"symptoms={', '.join(session.symptoms or []) or 'unknown'}; "
         f"zip={session.zip_code or 'unknown'}; "
         f"email={session.customer_email or 'unknown'}; "
+        f"recommended_action={session.recommended_action or 'none'}; "
         f"safety_blocked={session.safety_blocked}."
     )
     return [

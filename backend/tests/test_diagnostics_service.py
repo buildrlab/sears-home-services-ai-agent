@@ -84,6 +84,31 @@ def test_diagnostic_workflow_captures_email_and_requests_upload_link(
     }
 
 
+def test_diagnostic_workflow_uses_email_after_prior_upload_request(
+    db_session: Session,
+) -> None:
+    service = _service(db_session)
+    session = service.create_session(DiagnosticSessionCreate())
+    service.process_turn(
+        session_id=session.id,
+        message="My refrigerator is leaking in 75201 and I can send a photo.",
+    )
+
+    result = service.process_turn(
+        session_id=session.id,
+        message="Customer@Example.Test",
+    )
+    persisted = service.get_session(session.id)
+
+    assert persisted.customer_email == "customer@example.test"
+    assert result.recommended_action == "send_upload_link"
+    assert result.tool_calls[0].name == "create_upload_link"
+    assert result.tool_calls[0].arguments == {
+        "session_id": session.id,
+        "email": "customer@example.test",
+    }
+
+
 def test_diagnostic_workflow_refuses_unsafe_troubleshooting(db_session: Session) -> None:
     service = _service(db_session)
     session = service.create_session(DiagnosticSessionCreate())

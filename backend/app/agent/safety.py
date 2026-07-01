@@ -5,6 +5,7 @@ from __future__ import annotations
 UNSAFE_PATTERNS: tuple[str, ...] = (
     "gas smell",
     "smell gas",
+    "smells like gas",
     "gas leak",
     "sparking",
     "spark",
