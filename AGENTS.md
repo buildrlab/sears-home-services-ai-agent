@@ -34,7 +34,7 @@ Use the latest stable, generally available version of every technology unless a 
 Current verified baseline as of 2026-06-30:
 
 - GitHub Actions: `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`.
-- Python: `python3.14` because it is the latest AWS Lambda-supported Python runtime.
+- Python: `python3.14` for backend containers and local tooling.
 - PostgreSQL: PostgreSQL 18, using the newest Aurora PostgreSQL-compatible minor on AWS and PostgreSQL 18 locally.
 - Node.js: 26.4.0 for frontend builds.
 - pnpm: 11.9.0.
@@ -75,8 +75,9 @@ ADRs should include context, decision, consequences, alternatives considered, an
 - Validate Twilio webhook and WebSocket handshake signatures with the official Twilio SDK.
 - Store production secrets in AWS Secrets Manager or GitHub Actions secrets, never in repository files.
 - Use Terraform for all AWS infrastructure. Terraform remote state must be managed in S3.
+- Do not run Alembic migrations during FastAPI startup, container startup, Lambda import, or request handling. Production migrations must run as an explicit deployment step outside the API runtime, using a least-privilege one-off ECS/Fargate migration task unless a later ADR changes this.
 - Match the existing BuildrLab `website` and `buildr-hq` DNS pattern: `buildrlab-core` account `202612164956` owns the `buildrlab.com` hosted zone, and Sears Terraform must use a cross-account Route 53 delegation role/provider to create records directly in that zone. Do not create a Sears child hosted zone unless a later ADR changes this.
-- Keep AWS resources cost-conscious: serverless where appropriate, lifecycle rules for S3, small Lambda memory until measured, and no always-on services unless justified.
+- Keep AWS resources cost-conscious: serverless where appropriate, lifecycle rules for S3, right-sized Fargate CPU/memory until measured, and no always-on services unless justified.
 - Measure or document performance-critical paths, especially call latency, upload processing, and scheduling transactions.
 
 ## Testing Expectations

@@ -19,5 +19,5 @@ Use the established BuildrLab cross-account DNS pattern from the `website` and `
 
 - `infra/bootstrap`: S3 state bucket and related bootstrap resources.
 - `infra/shared`: shared AWS resources such as DNS, GitHub OIDC, VPC, and IAM.
-- `backend/infra`: backend resources such as API Gateway, Lambda, Aurora, RDS Proxy, S3, SQS, SES, Secrets Manager, and CloudWatch.
+- `backend/infra`: backend resources such as ALB, ECS/Fargate, ECR, Aurora, S3, SQS, SES, Secrets Manager, and CloudWatch.
 - `frontend/infra`: frontend S3/CloudFront resources.

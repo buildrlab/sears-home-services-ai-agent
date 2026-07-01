@@ -17,7 +17,7 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - AWS region: `us-east-1`
 - Integration branch: `dev`
 - Release branch: `main`
-- Backend: Python 3.14 on AWS Lambda `python3.14` / Amazon Linux 2023, FastAPI, SQLAlchemy 2.0, Alembic
+- Backend: Python 3.14 in Amazon ECS/Fargate containers, FastAPI, SQLAlchemy 2.0, Alembic
 - Frontend: React 19, Vite 8, TypeScript 6, Tailwind CSS 4
 - Database: PostgreSQL 18 locally, latest Aurora Serverless v2 PostgreSQL-compatible minor on AWS
 - Voice: Twilio ConversationRelay primary, Twilio Gather fallback
@@ -28,6 +28,7 @@ Build a fully working voice AI home appliance diagnostic agent for Sears Home Se
 - Infrastructure: Terraform with S3 remote state
 - CI/CD: GitHub Actions
 - Dependency updates: grouped weekly Dependabot PRs targeting `dev`
+- Database migrations: Alembic runs as an explicit deployment step outside normal API startup/request handling, through a one-off ECS/Fargate task in the application VPC.
 
 ## Repository Structure
 
@@ -74,7 +75,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
 | Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
 | Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
-| Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources and remote state. |
+| Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
 | Phase 8: CI/CD and Remote Validation | Pending | Not started. | Run GitHub Actions deploys and remote tests against AWS. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
 
@@ -417,7 +418,8 @@ Deliverables:
 - Shared infrastructure for cross-account DNS, IAM/OIDC, VPC, and common security groups.
 - BuildrLab-style Route 53 delegation role/provider wiring for `buildrlab-core` account `202612164956`.
 - DNS records for `shs.buildrlab.com`, `api.shs.buildrlab.com`, and `ws.shs.buildrlab.com` created directly in the existing parent `buildrlab.com` hosted zone.
-- Backend infrastructure for API Gateway, Lambda, Aurora Serverless v2, RDS Proxy, S3, SQS, SES, Secrets Manager, CloudWatch.
+- Backend infrastructure for ALB, ECS/Fargate, ECR, Aurora Serverless v2, S3, SQS, SES, Secrets Manager, CloudWatch.
+- Out-of-band Alembic migration runner as a one-off ECS/Fargate task inside the VPC.
 - Frontend infrastructure for S3 static hosting and CloudFront.
 - Environment variable and secret wiring.
 
@@ -427,12 +429,14 @@ Core tests:
 - `terraform validate`.
 - Static Terraform security scan.
 - GitHub Actions plan generation.
+- Migration runner can apply Alembic without invoking the API service or running migrations in app startup.
 
 Exit criteria:
 
 - Terraform plans cleanly.
 - DNS plan matches `website`/`buildr-hq`: no Sears child hosted zone, direct parent-zone records via `aws.dns`.
 - AWS deployment path is documented.
+- Alembic migration execution is documented as a deployment step outside API startup/request handling.
 
 ## Phase 8: CI/CD and Remote Validation
 

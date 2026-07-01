@@ -620,3 +620,34 @@ tests, repeated concurrent hold tests, and PostgreSQL 18 API smoke verification.
 - Seed data inserted or verified 6 technicians in PostgreSQL 18.
 - Local FastAPI smoke verified health, technician match, hold creation,
   duplicate hold HTTP `409 Conflict`, booking, and persisted appointment fetch.
+
+## 2026-07-01 Alembic on Lambda Architecture Check
+
+### Prompt
+
+The user asked whether Alembic will work on AWS Lambda, whether cold starts will
+be an issue, and whether AWS Fargate should be considered instead.
+
+### Response
+
+The assistant explained that Alembic can technically run anywhere with Python and
+database connectivity, but it should not run inside normal Lambda import,
+FastAPI startup, cold-start initialization, container startup, or request
+handling. The assistant initially recommended keeping the REST API on Lambda
+with an out-of-band migration task, then the user clarified a preference to use
+Fargate for the Python layer. The decision was updated to run the Python backend
+on ECS/Fargate: one FastAPI service behind an ALB, one one-off ECS/Fargate
+Alembic migration task using the same image, and a likely Python worker
+service/task for async vision work. If the project had stayed on Lambda, the
+Python layer would likely be one FastAPI API Lambda, one SQS worker Lambda, and
+possibly separate WebSocket handlers; it would not be one Lambda per route.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/adr/0001-use-postgresql-for-scheduling.md`
+- `docs/adr/0006-run-python-backend-on-fargate-with-separate-migration-task.md`
+- `docs/runbooks/aws-testing.md`
+- `infra/README.md`
