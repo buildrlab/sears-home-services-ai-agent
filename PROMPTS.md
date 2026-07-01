@@ -1522,3 +1522,52 @@ GitHub verification:
   and Terraform security checks.
 - PR #9 merged into `dev` at
   `6b00937628dcc98d382ab65f4410e59d52a70487`.
+
+## 2026-07-01 Phase 8 Live Apply Output Capture Fix
+
+### Prompt
+
+The user reported that deploy preflight passed with GitHub `prod` environment
+configuration, secrets, variables, branch protection, and AWS account identity
+all verified. During the live deploy follow-up, the user asked what kind of
+PostgreSQL database was configured and whether it was serverless.
+
+### Response
+
+The assistant confirmed the AWS database is Aurora Serverless v2
+PostgreSQL-compatible, with a Terraform `aws_rds_cluster` using
+`engine = "aurora-postgresql"`, Serverless v2 scaling from `0.5` to `2` ACUs,
+one `db.serverless` cluster instance, private access only, KMS encryption,
+RDS-managed master password, deletion protection, final snapshots, and
+seven-day backup retention. The assistant noted that Terraform still uses
+`engine_mode = "provisioned"` for Aurora Serverless v2, so `db.serverless` and
+`serverlessv2_scaling_configuration` are the decisive settings.
+
+The assistant monitored AWS Deploy run `28506856858`. Shared Terraform apply and
+backend bootstrap apply succeeded, creating initial AWS resources. The run then
+failed in `Publish backend runtime secrets` because the workflow assumed the
+workload role and then ran `terraform output`; that role could not read the
+central S3 Terraform state bucket and received S3 `403 Forbidden`.
+
+The assistant patched `.github/workflows/aws-deploy.yml` so backend outputs are
+captured before assuming the workload role, and frontend outputs are captured
+before workload-role asset upload. Workload-role steps now use captured GitHub
+step outputs for Secrets Manager ARNs, ECR repository URL, ECS migration task
+settings, frontend bucket name, and CloudFront distribution ID instead of
+calling `terraform output`.
+
+### Files Changed
+
+- `.github/workflows/aws-deploy.yml`
+- `tests/test_aws_deploy_workflow.py`
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 56 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `actionlint .github/workflows/aws-deploy.yml` passed.
+- Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
+- `git diff --check` passed.
