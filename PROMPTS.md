@@ -2252,3 +2252,45 @@ The assistant improved the Twilio Gather fallback path:
 
 - `.venv/bin/python -m ruff check .` passed from `backend/`.
 - `.venv/bin/python -m pytest` passed from `backend/` with 120 tests.
+
+## 2026-07-01 Production Voice Flow Polish
+
+### Prompt
+
+The user asked to make production-grade improvements to the voice flow, ensure
+it is in tip-top shape, and make the best voice response system possible.
+
+### Response
+
+The assistant added production-grade voice-flow hardening:
+
+- Twilio Gather now accepts both speech and DTMF, with English language,
+  appliance/symptom/scheduling speech hints, a keypad finish key, and existing
+  empty-result retries.
+- Callers can enter a five-digit ZIP code by keypad.
+- Callers can press `1` to book a proposed appointment.
+- Low-confidence speech recognition results are treated as retryable input
+  instead of corrupting diagnostic state.
+- Confirmation codes are read in a voice-friendly form while preserving the
+  exact code.
+- Deterministic extraction now handles common ASR variants, spoken ZIP digits,
+  and spoken email addresses such as "customer at example dot test".
+- Generic OpenAI filler responses without tool calls are replaced by the
+  stateful deterministic prompt so the caller is asked the next sensible
+  question.
+
+### Files Changed
+
+- `backend/app/agent/extraction.py`
+- `backend/app/agent/providers.py`
+- `backend/app/api/twilio_voice.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_extraction.py`
+- `backend/tests/test_openai_provider.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 126 tests.
