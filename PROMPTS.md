@@ -713,3 +713,63 @@ client contract test.
 - Local deterministic API smoke verified diagnostic session creation, two-turn
   appliance/symptom/ZIP flow, `find_technician_matches` tool-call emission, and
   unsafe gas prompt safety escalation.
+
+## 2026-07-01 Phase 4 Twilio Voice Local Implementation
+
+### Prompt
+
+The user asked whether anything was needed before logging off. The assistant
+said no immediate input was needed and continued Phase 4, noting that only
+external live gates such as a Twilio tunnel/live call or AWS credentials may
+require the user later.
+
+### Response
+
+The assistant implemented the repo-side Phase 4 Twilio voice integration:
+signed Twilio webhook and WebSocket validation using the official Twilio SDK,
+inbound voice webhook, Gather fallback webhook, status callback,
+ConversationRelay TwiML generation, ConversationRelay WebSocket handling, call
+session/event persistence, and deterministic diagnostic-service integration for
+voice turns.
+The assistant kept Phase 4 marked `In Progress` rather than complete because
+live backend call-through through ngrok/cloudflared and provider-side
+ConversationRelay enablement are still external live-completion gates.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `backend/.env.example`
+- `backend/README.md`
+- `backend/alembic/versions/0004_create_call_session_schema.py`
+- `backend/app/api/twilio_voice.py`
+- `backend/app/config.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/pyproject.toml`
+- `backend/tests/test_config.py`
+- `backend/tests/test_migrations.py`
+- `backend/tests/test_twilio_voice.py`
+- `docs/runbooks/local-testing.md`
+- `docs/runbooks/twilio-access.md`
+
+### Verification
+
+- Installed `twilio==9.10.9` into the local backend virtual environment.
+- `python -W error -m pytest` passed with 44 tests.
+- `ruff check .` passed for backend.
+- `pip-audit` reported no known vulnerabilities for third-party dependencies;
+  the local editable backend package was skipped because it is not on PyPI.
+- `compileall` passed for backend app/tests plus scripts.
+- Twilio script unit tests still passed with 16 tests.
+- Alembic migrated PostgreSQL 18 from empty through
+  `0004_call_session_schema`.
+- Local Uvicorn smoke verified `/healthz`, `/scheduling/matches`,
+  `/twilio/voice/incoming`, `/twilio/voice/gather`, and
+  `/twilio/voice/status` against PostgreSQL 18.
+- The local Gather fallback smoke persisted call `CAPGLOCAL123` as completed
+  with diagnostic status `ready_to_schedule`, appliance `refrigerator`, ZIP
+  `75201`, and events `voice_incoming`, `gather_response`, and
+  `status_callback`.

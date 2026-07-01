@@ -270,6 +270,56 @@ After backend Twilio endpoints exist:
 6. Confirm ConversationRelay connects over WebSocket, or Gather fallback responds.
 7. Confirm a call session is created.
 
+For backend-local Gather fallback testing, run the FastAPI app with
+`TWILIO_VOICE_MODE=gather`, expose it through the tunnel, then point Twilio at
+the backend:
+
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+ngrok http 8000
+```
+
+```bash
+export TWILIO_PHONE_NUMBER="+14155551234"
+export TUNNEL_BASE_URL="https://<tunnel-host>"
+
+python3.14 scripts/twilio/setup.py \
+  --friendly-name "SHS AI Agent" \
+  --voice-url "$TUNNEL_BASE_URL/twilio/voice/incoming" \
+  --status-callback-url "$TUNNEL_BASE_URL/twilio/voice/status" \
+  --phone-number "$TWILIO_PHONE_NUMBER"
+```
+
+Before placing a live call, configure the backend with:
+
+```text
+TWILIO_AUTH_TOKEN=<real Twilio auth token>
+TWILIO_VALIDATE_REQUESTS=true
+TWILIO_VOICE_MODE=gather
+PUBLIC_BASE_URL=https://<tunnel-host>
+```
+
+Call the Twilio number and confirm the backend creates `call_sessions` and
+`call_events` rows for `voice_incoming`, `gather_response`, and
+`status_callback`.
+
+For ConversationRelay testing, first confirm the account-level AI/ML addendum
+and ConversationRelay enablement in Twilio. Then set:
+
+```text
+TWILIO_VOICE_MODE=conversationrelay
+TWILIO_CONVERSATION_RELAY_URL=wss://<tunnel-host>/twilio/conversation
+```
+
+Call the Twilio number and confirm the WebSocket path creates
+`conversation_setup` and `conversation_prompt` events. If ConversationRelay is
+not enabled for the account, keep `TWILIO_VOICE_MODE=gather` as the supported
+fallback.
+
 ## Live-Complete Gate
 
 Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are true:
@@ -284,7 +334,11 @@ Do not move Phase 0.5 to `Complete`, or move to Phase 1, until all of these are 
 
 Latest status as of 2026-07-01: Phase 0.5 live-call verification is complete. Twilio credential verification passed from the user's local environment, `list_numbers.py` returned available US voice-capable local numbers with no address requirement, `setup.py --dry-run` confirmed the selected redacted phone number exists and can be attached after TwiML App creation, the non-dry-run setup created the TwiML App and attached the selected number, `verify.py` confirmed AWS webhook URLs plus phone routing, and a real inbound call through ngrok reached the smoke webhook. The smoke server recorded `voice_incoming`, `gather_response` with speech result `Test.`, and `status_callback` with completed call status. The user reported Twilio was updated after the smoke test; Codex could not independently verify the restored provider state because Twilio credentials are not loaded in the Codex shell.
 
-Operational follow-up: after any ngrok/cloudflared smoke test, restore the TwiML App to the AWS placeholder URL and run the restore verification command above. ConversationRelay addendum acceptance and enablement remain Phase 4 gates; Gather fallback is the completed Phase 0.5 live-call path.
+Operational follow-up: after any ngrok/cloudflared smoke test, restore the
+TwiML App to the AWS placeholder URL and run the restore verification command
+above. ConversationRelay addendum acceptance and enablement remain Phase 4 live
+gates; Gather fallback is the completed Phase 0.5 live-call path and the Phase 4
+fallback path.
 
 ## Completion Criteria
 

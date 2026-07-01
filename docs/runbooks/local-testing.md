@@ -99,6 +99,28 @@ The expected result is a `ready_to_schedule` diagnostic session with a
 `find_technician_matches` tool call for the normal flow, and a
 `safety_escalated` session for the unsafe gas prompt.
 
+Phase 4 and later must also verify the Twilio Gather fallback path locally. In
+local/test mode, request validation is skipped when no `TWILIO_AUTH_TOKEN` is
+configured:
+
+```bash
+curl -X POST http://127.0.0.1:8000/twilio/voice/incoming \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&From=%2B15551234567&To=%2B17373559397"
+
+curl -X POST http://127.0.0.1:8000/twilio/voice/gather \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&From=%2B15551234567&To=%2B17373559397&SpeechResult=My%20refrigerator%20is%20not%20cooling%20in%2075201"
+
+curl -i -X POST http://127.0.0.1:8000/twilio/voice/status \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&CallStatus=completed"
+```
+
+The expected result is Gather TwiML from the first two calls and HTTP `204 No
+Content` from the status callback. Unit tests also cover signed webhooks and the
+ConversationRelay WebSocket handler.
+
 If local port `5432` is already in use, run a temporary PostgreSQL 18 container
 on a different port and override `DATABASE_URL`:
 

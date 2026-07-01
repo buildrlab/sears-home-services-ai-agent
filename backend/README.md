@@ -40,6 +40,11 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.5
 OPENAI_REASONING_EFFORT=low
 OPENAI_VERBOSITY=low
+TWILIO_AUTH_TOKEN=
+TWILIO_VALIDATE_REQUESTS=true
+TWILIO_VOICE_MODE=gather
+TWILIO_CONVERSATION_RELAY_URL=wss://ws.shs.buildrlab.com/twilio/conversation
+PUBLIC_BASE_URL=
 ```
 
 The `SHS_`-prefixed aliases are also supported:
@@ -52,10 +57,21 @@ SHS_OPENAI_API_KEY=
 SHS_OPENAI_MODEL=
 SHS_OPENAI_REASONING_EFFORT=
 SHS_OPENAI_VERBOSITY=
+SHS_TWILIO_AUTH_TOKEN=
+SHS_TWILIO_VALIDATE_REQUESTS=
+SHS_TWILIO_VOICE_MODE=
+SHS_TWILIO_CONVERSATION_RELAY_URL=
+SHS_PUBLIC_BASE_URL=
 ```
 
 When no OpenAI API key is configured, the diagnostic agent uses the deterministic
 local provider for repeatable local development and tests.
+
+For Twilio webhooks, keep request validation enabled outside local/test
+development and set `TWILIO_AUTH_TOKEN` to the real account auth token through a
+secret manager or local uncommitted `.env`. If a tunnel or reverse proxy changes
+the externally visible host, set `PUBLIC_BASE_URL` to the HTTPS URL Twilio calls
+so signature validation uses the same URL Twilio signed.
 
 ## Local Run
 
@@ -138,6 +154,22 @@ curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/turn \
   -d '{"message":"It is in 75201."}'
 ```
 
+Run the local Gather fallback webhook path without Twilio credentials:
+
+```bash
+curl -X POST http://127.0.0.1:8000/twilio/voice/incoming \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&From=%2B15551234567&To=%2B17373559397"
+
+curl -X POST http://127.0.0.1:8000/twilio/voice/gather \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&From=%2B15551234567&To=%2B17373559397&SpeechResult=My%20refrigerator%20is%20not%20cooling%20in%2075201"
+
+curl -i -X POST http://127.0.0.1:8000/twilio/voice/status \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "CallSid=CALOCAL123&CallStatus=completed"
+```
+
 ## Testing
 
 Backend implementation must include:
@@ -163,7 +195,9 @@ empty database, deterministic technician seed data, repository queries by ZIP
 code plus appliance type, scheduling API flows, confirmation persistence,
 double-booking rejection, cancellation slot release, concurrent hold races,
 diagnostic state extraction, symptom memory, unsafe troubleshooting refusal,
-tool-call validation, and the OpenAI provider contract with a fake client.
+tool-call validation, the OpenAI provider contract with a fake client, signed
+Twilio webhook handling, Gather fallback turns, status callbacks, and the
+ConversationRelay WebSocket handler.
 
 For local PostgreSQL verification, `alembic upgrade head` and `python -m app.seed`
 were run against PostgreSQL 18. PostgreSQL 19 is not used because it is not GA.
@@ -183,6 +217,13 @@ Phase 3 PostgreSQL smoke verification additionally exercised:
 - deterministic two-turn diagnostic state persistence
 - `find_technician_matches` tool-call emission
 - unsafe troubleshooting safety escalation
+
+Phase 4 local smoke verification additionally exercises:
+
+- `POST /twilio/voice/incoming`
+- `POST /twilio/voice/gather`
+- `POST /twilio/voice/status`
+- `WebSocket /twilio/conversation`
 
 ## Infrastructure
 

@@ -46,6 +46,32 @@ class Settings(BaseSettings):
         default="low",
         validation_alias=AliasChoices("OPENAI_VERBOSITY", "SHS_OPENAI_VERBOSITY"),
     )
+    twilio_auth_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TWILIO_AUTH_TOKEN", "SHS_TWILIO_AUTH_TOKEN"),
+    )
+    twilio_validate_requests: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "TWILIO_VALIDATE_REQUESTS",
+            "SHS_TWILIO_VALIDATE_REQUESTS",
+        ),
+    )
+    twilio_voice_mode: Literal["gather", "conversationrelay"] = Field(
+        default="gather",
+        validation_alias=AliasChoices("TWILIO_VOICE_MODE", "SHS_TWILIO_VOICE_MODE"),
+    )
+    twilio_conversation_relay_url: str = Field(
+        default="wss://ws.shs.buildrlab.com/twilio/conversation",
+        validation_alias=AliasChoices(
+            "TWILIO_CONVERSATION_RELAY_URL",
+            "SHS_TWILIO_CONVERSATION_RELAY_URL",
+        ),
+    )
+    public_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("PUBLIC_BASE_URL", "SHS_PUBLIC_BASE_URL"),
+    )
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 

@@ -72,7 +72,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as later phases expand the schema and API surface. |
 | Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for later voice/frontend flows. |
 | Phase 3: Diagnostic Agent | Complete | Diagnostic session/event schema, deterministic agent workflow, appliance/symptom/ZIP extraction, safety refusal path, tool schemas, OpenAI Responses provider abstraction, API endpoints, tests, local API run, and PostgreSQL 18 migration/API verification are implemented. | Use diagnostic service from Phase 4 Twilio voice routes. |
-| Phase 4: Twilio Voice | Next | Not started. | Implement ConversationRelay and Gather fallback against the diagnostic service. |
+| Phase 4: Twilio Voice | In Progress | Repo implementation is complete locally: signed webhook validation, Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, and runbook updates are implemented. Live Twilio tunnel call-through and ConversationRelay account enablement remain the live-completion gates. | Run backend through ngrok/cloudflared with real Twilio auth token, verify a live Gather fallback call, and confirm ConversationRelay enablement or keep Gather as fallback. |
 | Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
 | Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
 | Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
@@ -376,6 +376,34 @@ Exit criteria:
 - Local call can reach the app through a tunnel.
 - ConversationRelay onboarding checklist is documented.
 - Gather fallback works without ConversationRelay.
+
+Implementation status:
+
+- [x] Inbound Twilio webhook added at `POST /twilio/voice/incoming`.
+- [x] Gather fallback added at `POST /twilio/voice/gather`.
+- [x] Status callback added at `POST /twilio/voice/status`.
+- [x] ConversationRelay WebSocket handler added at `WebSocket /twilio/conversation`.
+- [x] Twilio request signature validation implemented with the official Twilio SDK.
+- [x] TwiML generation implemented with the official Twilio SDK.
+- [x] Call sessions and call events persist through Alembic migration `0004_call_session_schema`.
+- [x] Gather fallback drives the deterministic diagnostic service.
+- [x] ConversationRelay setup/prompt events create call sessions and diagnostic turns.
+- [x] Local tests cover signed webhook acceptance, missing signature rejection, signed WebSocket acceptance, unsigned WebSocket rejection, ConversationRelay TwiML, Gather diagnostic turns, status callbacks, and WebSocket prompt handling.
+- [ ] Live backend call-through through ngrok/cloudflared with real Twilio request signatures.
+- [ ] ConversationRelay account addendum/enablement confirmed in Twilio.
+- [ ] Live ConversationRelay call-through verified, or Gather explicitly retained as the deployed fallback.
+
+Latest verification:
+
+- 2026-07-01: Installed `twilio==9.10.9` into the local backend virtual environment.
+- 2026-07-01: `python -W error -m pytest` passed with 44 tests and no warnings.
+- 2026-07-01: `ruff check .` passed for backend.
+- 2026-07-01: `pip-audit` reported no known vulnerabilities for third-party dependencies; the local editable backend package was skipped because it is not on PyPI.
+- 2026-07-01: `compileall` passed for backend app/tests plus scripts.
+- 2026-07-01: Twilio script unit tests still passed with 16 tests.
+- 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty through `0004_call_session_schema`.
+- 2026-07-01: Local Uvicorn served `GET /healthz`, `GET /scheduling/matches`, `POST /twilio/voice/incoming`, `POST /twilio/voice/gather`, and `POST /twilio/voice/status` against PostgreSQL 18.
+- 2026-07-01: Local Gather fallback smoke persisted call `CAPGLOCAL123` as `completed`, diagnostic status `ready_to_schedule`, appliance `refrigerator`, ZIP `75201`, and events `voice_incoming`, `gather_response`, `status_callback`.
 
 ## Phase 5: Visual Diagnosis
 

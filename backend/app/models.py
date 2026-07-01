@@ -43,6 +43,12 @@ class DiagnosticEventRole(StrEnum):
     SYSTEM = "system"
 
 
+class CallSessionStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class Technician(Base):
     __tablename__ = "technicians"
 
@@ -249,6 +255,7 @@ class DiagnosticSession(Base):
         lazy="selectin",
         order_by="DiagnosticEvent.id",
     )
+    call_sessions: Mapped[list[CallSession]] = relationship(back_populates="diagnostic_session")
 
 
 class DiagnosticEvent(Base):
@@ -271,3 +278,66 @@ class DiagnosticEvent(Base):
     )
 
     session: Mapped[DiagnosticSession] = relationship(back_populates="events")
+
+
+class CallSession(Base):
+    __tablename__ = "call_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    diagnostic_session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("diagnostic_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    call_sid: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    from_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    to_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=CallSessionStatus.ACTIVE.value,
+        index=True,
+    )
+    voice_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="gather")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    diagnostic_session: Mapped[DiagnosticSession | None] = relationship(
+        back_populates="call_sessions",
+        lazy="selectin",
+    )
+    events: Mapped[list[CallEvent]] = relationship(
+        back_populates="call_session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="CallEvent.id",
+    )
+
+
+class CallEvent(Base):
+    __tablename__ = "call_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    call_session_id: Mapped[int] = mapped_column(
+        ForeignKey("call_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    call_session: Mapped[CallSession] = relationship(back_populates="events")
