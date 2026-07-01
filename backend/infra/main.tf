@@ -411,7 +411,9 @@ resource "aws_ses_domain_dkim" "email" {
 
 resource "aws_route53_record" "ses_dkim" {
   provider = aws.dns
-  for_each = toset(aws_ses_domain_dkim.email.dkim_tokens)
+  for_each = {
+    for index in range(3) : tostring(index) => aws_ses_domain_dkim.email.dkim_tokens[index]
+  }
 
   zone_id = var.hosted_zone_id
   name    = "${each.value}._domainkey.${var.email_domain}"

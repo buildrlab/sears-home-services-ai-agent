@@ -651,6 +651,40 @@ configuration scripts.
   expected and reported the current live blockers: invalid local `gh` auth and
   missing AWS credentials through deploy preflight.
 
+## 2026-07-01 AWS Deploy SES DKIM Fix
+
+### Prompt
+
+After the first-deploy plan workflow fix merged, the assistant triggered AWS
+Deploy run `28506305251` from `dev` in `apply` mode with
+`bootstrap_backend=true`.
+
+### Response
+
+The deploy passed shared Terraform plan/apply and captured shared outputs, then
+failed during backend Terraform planning. The Terraform diagnostic showed SES
+DKIM Route 53 records were using `aws_ses_domain_dkim.email.dkim_tokens` values
+as `for_each` keys even though those values are unknown until apply. The
+assistant patched `backend/infra/main.tf` to use static indexes from `range(3)`
+as `for_each` keys and DKIM tokens only as values. A static regression test was
+added to prevent reintroducing unknown DKIM token keys.
+
+### Verification
+
+- AWS Deploy run `28506305251` failed at backend Terraform plan with
+  `Invalid for_each argument` for `aws_route53_record.ses_dkim`.
+- `backend/infra/main.tf` now keys DKIM records with static indexes.
+- `tests/test_terraform_static_analysis.py` checks that DKIM Route 53 records
+  do not use `toset(aws_ses_domain_dkim.email.dkim_tokens)` as `for_each`.
+- `terraform -chdir=backend/infra fmt -check` passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 54 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `scripts/terraform/validate.sh` passed for all Terraform stacks after
+  provider-registry network access was allowed.
+- `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
+  passed.
+
 ## 2026-07-01 AWS Deploy First Plan Fix
 
 ### Prompt
