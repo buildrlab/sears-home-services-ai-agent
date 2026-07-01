@@ -24,6 +24,54 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 - SES sender identity verified.
 - OpenAI API key stored in AWS Secrets Manager or GitHub Actions secrets.
 
+## GitHub Deployment Configuration
+
+Create a GitHub environment named `prod` for deployment approvals and secrets.
+
+Required secret:
+
+- `AWS_DEVOPS_ROLE_ARN`: IAM role in the BuildrLab devops/control account that
+  GitHub OIDC can assume.
+
+Runtime secret values:
+
+- `OPENAI_API_KEY`: used to populate the backend Secrets Manager secret on deploy.
+- `TWILIO_AUTH_TOKEN`: used to populate the backend Secrets Manager secret on deploy.
+
+If the AWS Secrets Manager values already exist with an `AWSCURRENT` version,
+the deploy workflow can proceed without the corresponding GitHub secret. First
+live deploys should set both GitHub secrets so ECS secret injection cannot start
+with empty Secrets Manager metadata.
+
+Required variables:
+
+- `AWS_DEVOPS_ACCOUNT_ID`: account that owns the GitHub OIDC devops role.
+- `SHS_WORKLOAD_ACCOUNT_ID`: `710045722740`.
+- `SHS_DNS_ACCOUNT_ID`: `202612164956`.
+- `SHS_HOSTED_ZONE_ID`: `Z05781442GINHB3A5IJXK`.
+- `TF_STATE_BUCKET`: `buildrlab-terraform-state`.
+
+Terraform assumes these target roles from the devops role:
+
+- Workload account: `prod-sears-home-services-ai-agent-deploy`.
+- DNS account: `sears-home-services-ai-agent-prod-route53-delegation`.
+
+## State Bootstrap
+
+The normal app deploy workflow assumes the S3 Terraform state bucket already
+exists. If it does not, apply `infra/bootstrap` once from an approved admin
+context before running `.github/workflows/aws-deploy.yml`:
+
+```bash
+cd infra/bootstrap
+terraform init
+terraform apply \
+  -var 'state_bucket_name=buildrlab-terraform-state' \
+  -var 'environment=prod'
+```
+
+After bootstrap, the app stacks use S3 remote state with native S3 lockfiles.
+
 ## Deployment Path
 
 1. Open a pull request into `dev`.
@@ -33,7 +81,10 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 5. Confirm the DNS plan does not create a Sears-owned `shs.buildrlab.com` hosted zone.
 6. Confirm the backend plan deploys ECS/Fargate services/tasks, not a Lambda API runtime.
 7. Merge only after checks and plan are understood.
-8. Deploy through the approved GitHub Actions workflow.
+8. Deploy through `.github/workflows/aws-deploy.yml`.
+
+See [GitHub Branch Protection Runbook](github-branch-protection.md) for the
+recommended `dev` and `main` merge gates.
 
 Stack order:
 
@@ -48,16 +99,34 @@ Local validation without deploying:
 scripts/terraform/validate.sh
 ```
 
+First backend deployment through GitHub Actions:
+
+1. Open **Actions -> AWS Deploy**.
+2. Select environment `prod`.
+3. Select mode `apply`.
+4. Set `bootstrap_backend=true`.
+5. Keep `api_desired_count=1` and `worker_desired_count=1` unless deliberately
+   doing a zero-task infrastructure-only apply.
+6. Confirm the workflow creates shared infrastructure, creates backend resources
+   with zero running tasks, pushes the backend image, verifies secret values,
+   applies ECS services, runs the Alembic Fargate migration task, deploys the
+   frontend, and runs remote smoke checks.
+
+Subsequent deployments:
+
+1. Run the workflow in `plan` mode after shared state exists.
+2. Review the Terraform plan output.
+3. Rerun in `apply` mode with `bootstrap_backend=false`.
+
 ## Database Migrations
 
 Production Alembic migrations must run outside the normal API runtime. Do not
 run `alembic upgrade head` during container startup, FastAPI startup, Lambda
 import, or request handling.
 
-The Phase 7 deployment path must include an explicit migration step before
-traffic is shifted to the new backend version. The preferred runner is a
-one-off ECS/Fargate task in the application VPC, using the same backend image
-as the API service and a least-privilege migration role:
+The deployment path includes an explicit migration step. The runner is a one-off
+ECS/Fargate task in the application VPC, using the same backend image as the API
+service and a least-privilege migration role:
 
 ```bash
 aws ecs run-task \
@@ -69,7 +138,9 @@ aws ecs run-task \
 
 The task command is `alembic upgrade head`. It reads the generated Aurora
 password from the RDS-managed Secrets Manager secret. Run only one migration task
-at a time.
+at a time. Alembic migrations must remain backward compatible with the previous
+API image because ECS rolling deployments can briefly run old and new tasks
+during a service deployment.
 
 Useful outputs:
 
@@ -100,11 +171,12 @@ After deployment, verify:
 curl -f https://api.shs.buildrlab.com/healthz
 ```
 
-Then run the project smoke suite once it exists:
+Then run the project smoke suite:
 
 ```bash
-cd backend
-pytest tests/smoke --base-url https://api.shs.buildrlab.com
+python3.14 scripts/aws/remote_smoke.py \
+  --api-base-url https://api.shs.buildrlab.com \
+  --frontend-base-url https://shs.buildrlab.com
 ```
 
 ## Remote Frontend Tests
