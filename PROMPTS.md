@@ -364,6 +364,62 @@ no local AWS credentials.
 - Refresh local `gh` and AWS auth if Codex should run deployment commands.
 - Run `.github/workflows/aws-deploy.yml` against AWS.
 
+## 2026-07-01 Phase 9 Submission Hardening
+
+### Prompt
+
+The active goal instructed Codex to continue working toward completing all
+phases of the Sears Home Services AI Agent take-home project with high-quality
+tested code, security/performance/cost-conscious implementation, local
+verification, GitHub PRs merged to `dev`, and documentation kept current.
+
+### Response
+
+The assistant started Phase 9 repo-side submission hardening. The work added a
+technical design document, a submission-hardening document with security,
+performance, cost, known-limitations, and pre-submission checklist sections, and
+a reviewer local smoke script that exercises the implemented Tier 1, Tier 2, and
+Tier 3 flows against a running local backend. The local run instructions were
+updated to explicitly copy `backend/.env.example` to `backend/.env` so MinIO and
+Mailpit settings are loaded for reviewer testing. During local reviewer smoke
+setup, the assistant found the PostgreSQL 18 Docker image rejected the old
+`/var/lib/postgresql/data` compose mount path; `docker-compose.yml` was updated
+to use a PostgreSQL 18-compatible named volume mounted at `/var/lib/postgresql`.
+
+### Files Changed
+
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docker-compose.yml`
+- `docs/runbooks/local-testing.md`
+- `docs/technical-design.md`
+- `docs/submission-hardening.md`
+- `scripts/reviewer/README.md`
+- `scripts/reviewer/local_smoke.py`
+- `tests/test_reviewer_scripts.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+  passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 26 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- Backend `.venv/bin/python -W error -m pytest` passed with 60 tests.
+- Backend `.venv/bin/ruff check .` passed.
+- Backend `.venv/bin/pip-audit` reported no known vulnerabilities.
+- Frontend `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`,
+  `pnpm audit --audit-level=moderate`, and `PW_PORT=5174 pnpm test:e2e`
+  passed.
+- `docker compose config --quiet` passed.
+- `scripts/terraform/validate.sh` passed for all stacks.
+- Trivy `0.72.0` config scan passed with no HIGH/CRITICAL findings.
+- Trivy `0.72.0` secret scan passed with no secrets found.
+- `scripts/reviewer/local_smoke.py --api-base-url http://127.0.0.1:8000`
+  passed against local PostgreSQL 18, Mailpit, MinIO, and Uvicorn.
+- `git diff --check` passed.
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt
