@@ -195,11 +195,11 @@ aws ecs run-task \
   --network-configuration "awsvpcConfiguration={subnets=[subnet-private-a,subnet-private-b],securityGroups=[sg-backend-tasks],assignPublicIp=DISABLED}"
 ```
 
-The task command is `alembic upgrade head`. It reads the generated Aurora
-password from the RDS-managed Secrets Manager secret. Run only one migration task
-at a time. Alembic migrations must remain backward compatible with the previous
-API image because ECS rolling deployments can briefly run old and new tasks
-during a service deployment.
+The task command is `alembic upgrade head && python -m app.seed`. It reads the
+generated Aurora password from the RDS-managed Secrets Manager secret. Run only
+one migration task at a time. Alembic migrations and seed updates must remain
+backward compatible with the previous API image because ECS rolling deployments
+can briefly run old and new tasks during a service deployment.
 
 Useful outputs:
 
@@ -272,8 +272,9 @@ AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py \
 ```
 
 This posts production-valid Twilio signatures to the deployed incoming, Gather,
-and status callback routes. It complements, but does not replace, a manual
-carrier call when a reviewer wants to hear the phone flow.
+and status callback routes, then verifies voice appointment proposal and booking
+confirmation. It complements, but does not replace, a manual carrier call when a
+reviewer wants to hear the phone flow.
 
 ## Tier 3 Verification
 
@@ -289,9 +290,8 @@ During or after a call:
 - Confirm OpenAI vision analysis runs.
 - Confirm the diagnostic session shows the visual analysis result.
 
-While SES is in sandbox, use a verified-domain recipient such as
-`no-reply@shs.buildrlab.com` for this check. External recipients require SES
-production access approval or individual recipient verification.
+SES send is implemented and verified. The AWS account is currently in sandbox
+mode with a 200 emails/day quota, and production access has been requested.
 
 ## AWS Log Review
 

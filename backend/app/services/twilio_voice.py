@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl
 
@@ -13,9 +14,38 @@ from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
 from app.config import Settings
-from app.models import CallEvent, CallSession, CallSessionStatus
-from app.schemas import DiagnosticSessionCreate
+from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
+from app.models import (
+    Appointment,
+    CallEvent,
+    CallSession,
+    CallSessionStatus,
+    DiagnosticEvent,
+    DiagnosticEventRole,
+    DiagnosticSession,
+    DiagnosticSessionStatus,
+)
+from app.schemas import CustomerCreate, DiagnosticSessionCreate
 from app.services.diagnostics import DiagnosticService
+from app.services.scheduling import SchedulingService
+
+CONFIRMATION_TERMS = ("yes", "book", "confirm", "schedule it", "that works")
+AVAILABILITY_TERMS = (
+    "morning",
+    "afternoon",
+    "am",
+    "pm",
+    "any time",
+    "anytime",
+    "soonest",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
 
 
 class TwilioVoiceService:
@@ -104,11 +134,131 @@ class TwilioVoiceService:
             call_session.diagnostic_session_id = diagnostic.id
             self._session.flush()
             diagnostic_id = diagnostic.id
+
+        diagnostic_session = call_session.diagnostic_session
+        if diagnostic_session is None:
+            diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
+                diagnostic_id
+            )
+
+        if _is_booking_confirmation(speech):
+            booked_message = self._book_latest_proposal(diagnostic_session, speech)
+            if booked_message is not None:
+                return booked_message
+
         result = DiagnosticService(self._session, self._settings).process_turn(
             session_id=diagnostic_id,
             message=speech,
         )
+        diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
+            diagnostic_id
+        )
+        if (
+            diagnostic_session.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value
+            and _has_availability_preference(speech)
+        ):
+            proposal = self._create_voice_appointment_proposal(diagnostic_session, speech)
+            if proposal is not None:
+                return proposal
         return result.assistant_message
+
+    def _book_latest_proposal(
+        self,
+        diagnostic_session: DiagnosticSession,
+        speech: str,
+    ) -> str | None:
+        appointment_id = _latest_proposed_appointment_id(diagnostic_session)
+        if appointment_id is None:
+            return None
+
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.USER,
+            content=speech,
+        )
+        appointment = SchedulingService(self._session).book_appointment(appointment_id)
+        diagnostic_session.status = DiagnosticSessionStatus.SCHEDULED.value
+        diagnostic_session.recommended_action = "appointment_confirmed"
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.TOOL,
+            content="Booked technician appointment.",
+            tool_name="book_appointment",
+            tool_payload=_appointment_payload(appointment),
+        )
+        message = _booking_confirmation_message(appointment)
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.ASSISTANT,
+            content=message,
+        )
+        self._session.flush()
+        return message
+
+    def _create_voice_appointment_proposal(
+        self,
+        diagnostic_session: DiagnosticSession,
+        speech: str,
+    ) -> str | None:
+        if not diagnostic_session.appliance_type or not diagnostic_session.zip_code:
+            return None
+
+        service = SchedulingService(self._session)
+        try:
+            appointment = service.create_first_available_hold(
+                zip_code=diagnostic_session.zip_code,
+                appliance_type=diagnostic_session.appliance_type,
+                customer=_customer_from_diagnostic_session(diagnostic_session),
+                issue_summary=_issue_summary(diagnostic_session),
+                availability_preference=speech,
+            )
+        except (InvalidSchedulingRequestError, SlotUnavailableError):
+            message = (
+                "I could not find an available matching slot for that preference. "
+                "Would a different morning or afternoon work?"
+            )
+            self._add_diagnostic_event(
+                diagnostic_session,
+                role=DiagnosticEventRole.ASSISTANT,
+                content=message,
+            )
+            self._session.flush()
+            return message
+
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.TOOL,
+            content="Proposed technician appointment.",
+            tool_name="propose_appointment",
+            tool_payload=_appointment_payload(appointment),
+        )
+        message = _appointment_proposal_message(appointment)
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.ASSISTANT,
+            content=message,
+        )
+        self._session.flush()
+        return message
+
+    def _add_diagnostic_event(
+        self,
+        diagnostic_session: DiagnosticSession,
+        *,
+        role: DiagnosticEventRole,
+        content: str,
+        tool_name: str | None = None,
+        tool_payload: dict[str, object] | None = None,
+    ) -> None:
+        self._session.add(
+            DiagnosticEvent(
+                session=diagnostic_session,
+                role=role.value,
+                content=content,
+                tool_name=tool_name,
+                tool_payload=tool_payload,
+            )
+        )
 
 
 async def parse_twilio_form(request: Request) -> dict[str, str]:
@@ -222,3 +372,69 @@ def _redact_payload(payload: dict[str, object]) -> dict[str, object]:
         if key in redacted:
             redacted[key] = "[redacted]"
     return redacted
+
+
+def _is_booking_confirmation(text: str) -> bool:
+    normalized = text.lower()
+    return any(term in normalized for term in CONFIRMATION_TERMS)
+
+
+def _has_availability_preference(text: str) -> bool:
+    normalized = text.lower()
+    return any(term in normalized for term in AVAILABILITY_TERMS)
+
+
+def _latest_proposed_appointment_id(diagnostic_session: DiagnosticSession) -> int | None:
+    for event in reversed(diagnostic_session.events):
+        if event.tool_name != "propose_appointment" or not event.tool_payload:
+            continue
+        appointment_id = event.tool_payload.get("appointment_id")
+        if isinstance(appointment_id, int):
+            return appointment_id
+    return None
+
+
+def _customer_from_diagnostic_session(diagnostic_session: DiagnosticSession) -> CustomerCreate:
+    return CustomerCreate(
+        full_name=diagnostic_session.customer_name or "Voice Caller",
+        email=diagnostic_session.customer_email,
+        phone=diagnostic_session.customer_phone or "+15550000000",
+    )
+
+
+def _issue_summary(diagnostic_session: DiagnosticSession) -> str:
+    symptom_text = ", ".join(diagnostic_session.symptoms or []) or "reported issue"
+    appliance = diagnostic_session.appliance_type or "appliance"
+    return f"Voice diagnostic for {appliance}: {symptom_text}."
+
+
+def _appointment_payload(appointment: Appointment) -> dict[str, object]:
+    return {
+        "appointment_id": appointment.id,
+        "status": appointment.status,
+        "technician": appointment.technician.name,
+        "scheduled_start": appointment.scheduled_start.isoformat(),
+        "scheduled_end": appointment.scheduled_end.isoformat(),
+        "confirmation_code": appointment.confirmation_code,
+    }
+
+
+def _appointment_proposal_message(appointment: Appointment) -> str:
+    return (
+        "I found an appointment with "
+        f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
+        "Say yes to book this appointment, or tell me another morning or afternoon."
+    )
+
+
+def _booking_confirmation_message(appointment: Appointment) -> str:
+    return (
+        "Your Sears Home Services appointment is confirmed with "
+        f"{appointment.technician.name} on {_format_voice_datetime(appointment.scheduled_start)}. "
+        f"Your confirmation code is {appointment.confirmation_code}. "
+        "Please keep the area around the appliance accessible for the technician."
+    )
+
+
+def _format_voice_datetime(value: datetime) -> str:
+    return value.strftime("%A at %-I:%M %p")

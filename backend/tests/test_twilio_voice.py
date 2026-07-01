@@ -11,7 +11,8 @@ from twilio.request_validator import RequestValidator
 from app.config import Settings, get_settings
 from app.dependencies import get_db_session
 from app.main import create_app
-from app.models import CallEvent, CallSession
+from app.models import Appointment, AppointmentStatus, CallEvent, CallSession
+from app.seed import seed_reference_data
 
 BASE_URL = "https://api.test"
 TWILIO_AUTH_TOKEN = "test-token"  # noqa: S105
@@ -147,7 +148,8 @@ def test_gather_response_runs_deterministic_diagnostic_turn(db_session: Session)
 
     assert response.status_code == 200
     assert "<Gather" in response.text
-    assert "checking available Sears Home Services technicians" in response.text
+    assert "Safe checks:" in response.text
+    assert "Do you prefer a morning or afternoon appointment" in response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.diagnostic_session is not None
     assert call_session.diagnostic_session.appliance_type == "refrigerator"
@@ -156,6 +158,62 @@ def test_gather_response_runs_deterministic_diagnostic_turn(db_session: Session)
         "voice_incoming",
         "gather_response",
     ]
+
+
+def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:
+    seed_reference_data(db_session)
+    db_session.commit()
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAVOICEBOOK")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    diagnostic_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling in 75201."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=diagnostic_params,
+        headers=_signed_headers("/twilio/voice/gather", diagnostic_params),
+    )
+    availability_params = incoming_params | {"SpeechResult": "Monday morning works."}
+
+    proposal_response = client.post(
+        "/twilio/voice/gather",
+        data=availability_params,
+        headers=_signed_headers("/twilio/voice/gather", availability_params),
+    )
+
+    assert proposal_response.status_code == 200
+    assert "I found an appointment with Avery Johnson" in proposal_response.text
+    assert "Say yes to book this appointment" in proposal_response.text
+    appointment = db_session.scalars(select(Appointment)).one()
+    assert appointment.status == AppointmentStatus.HELD.value
+
+    confirmation_params = incoming_params | {"SpeechResult": "Yes, book it."}
+    confirmation_response = client.post(
+        "/twilio/voice/gather",
+        data=confirmation_params,
+        headers=_signed_headers("/twilio/voice/gather", confirmation_params),
+    )
+
+    assert confirmation_response.status_code == 200
+    assert "appointment is confirmed" in confirmation_response.text
+    db_session.refresh(appointment)
+    assert appointment.status == AppointmentStatus.BOOKED.value
+    assert appointment.confirmation_code is not None
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.status == "scheduled"
+    tool_names = [
+        event.tool_name
+        for event in call_session.diagnostic_session.events
+        if event.tool_name is not None
+    ]
+    assert "propose_appointment" in tool_names
+    assert "book_appointment" in tool_names
 
 
 def test_status_callback_marks_call_completed(db_session: Session) -> None:
@@ -202,7 +260,7 @@ def test_conversation_relay_websocket_creates_session_and_returns_text(
 
     assert response["type"] == "text"
     assert response["last"] == "true"
-    assert "checking available Sears Home Services technicians" in response["token"]
+    assert "Do you prefer a morning or afternoon appointment" in response["token"]
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.call_sid == "CAWS123"
     assert [event.event_type for event in call_session.events] == [

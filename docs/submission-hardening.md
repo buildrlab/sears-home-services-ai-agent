@@ -69,15 +69,14 @@ The reviewer smoke script covers:
 - Diagnostic and vision providers are abstracted so deterministic local mode and
   OpenAI-backed mode have the same service boundaries.
 
-## Current Known Limitations
+## Current Provider Notes
 
 - ConversationRelay account enablement remains a provider-side Twilio gate until
   confirmed in the Twilio account.
 - Gather is the deployed reviewer voice path if ConversationRelay is
   unavailable.
-- SES production access is not enabled yet. Upload-link email is verified for
-  recipients under the verified `shs.buildrlab.com` domain; arbitrary external
-  recipients require SES production access approval or recipient verification.
+- SES send is implemented and verified. The AWS account is currently in sandbox
+  mode with a 200 emails/day quota, and production access has been requested.
 
 ## Pre-Submission Checklist
 
@@ -98,8 +97,9 @@ The reviewer smoke script covers:
 - [x] AWS deploy workflow runs in `plan` then `apply` mode.
 - [x] Remote smoke checks pass.
 - [x] Playwright passes against the deployed frontend.
-- [x] Production-signed Twilio webhooks reach the deployed backend.
-- [x] SES accepts the upload-link email for a verified recipient.
+- [x] Production-signed Twilio webhooks reach the deployed backend and exercise
+  voice appointment booking.
+- [x] SES accepts the upload-link email.
 - [x] Uploaded image analysis completes in AWS.
 - [x] CloudWatch, ALB, ECS, Aurora, SQS DLQ, SES, and browser console logs are
   reviewed after the remote test.

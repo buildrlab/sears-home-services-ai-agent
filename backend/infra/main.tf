@@ -712,7 +712,7 @@ resource "aws_ecs_task_definition" "migration" {
       name        = "migration"
       image       = local.backend_image
       essential   = true
-      command     = ["alembic", "upgrade", "head"]
+      command     = ["sh", "-c", "alembic upgrade head && python -m app.seed"]
       environment = local.application_environment
       secrets = [
         {

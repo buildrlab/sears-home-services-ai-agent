@@ -74,9 +74,12 @@ The backend supports:
 
 Gather is the guaranteed deployed reviewer path. ConversationRelay is
 implemented and remains the preferred upgrade once the Twilio AI/ML addendum and
-account feature gates are confirmed. Deployed validation posts production-signed
-Twilio webhook requests and confirms the Gather flow, status callback, and call
-session path.
+account feature gates are confirmed. The deployed Gather path gives safe
+troubleshooting guidance, asks for caller availability, proposes a matching
+technician slot, books when the caller confirms, and reads back the appointment
+confirmation code. Deployed validation posts production-signed Twilio webhook
+requests and confirms the Gather flow, voice booking path, status callback, and
+call session path.
 
 ## Scheduling Flow
 
@@ -89,6 +92,9 @@ booking call:
 3. Create a held appointment with an active slot uniqueness key.
 4. Book the held appointment and generate a confirmation code.
 5. Release expired holds and free cancelled slots.
+
+The voice flow uses the same service to create the first matching hold from the
+caller availability preference, then books it only after the caller confirms.
 
 This gives a clear correctness story for the reviewer: the database, not an
 in-memory cache, prevents duplicate active bookings for the same technician and
@@ -108,7 +114,9 @@ expire. The upload flow is:
 7. Vision provider records an analysis event on the diagnostic session.
 
 The final AWS smoke verifies this flow end to end with SES, direct S3 upload,
-OpenAI image analysis, and the diagnostic session history.
+OpenAI image analysis, and the diagnostic session history. SES is implemented;
+the AWS account is currently in sandbox mode with a production-access request in
+progress.
 
 ## Frontend
 
@@ -130,7 +138,9 @@ AWS infrastructure is Terraform-managed:
 - `frontend/infra`: S3 static assets, CloudFront, WAF, ACM, and DNS records.
 
 The Python layer runs on ECS/Fargate, not Lambda. Alembic runs through a one-off
-Fargate migration task in the VPC as part of deployment.
+Fargate migration task in the VPC as part of deployment. That task also runs the
+idempotent technician reference-data seed so deployed scheduling has the
+required representative technician data.
 
 ## Verification Strategy
 
@@ -144,6 +154,6 @@ Local verification includes:
 - Trivy secret/config scans.
 - Reviewer local smoke flow in `scripts/reviewer/local_smoke.py`.
 
-Remote verification is documented in `docs/runbooks/aws-testing.md` and remains
-blocked until GitHub deployment variables/secrets and AWS credentials are
-available.
+Remote verification is documented in `docs/runbooks/aws-testing.md` and is
+covered by the AWS deploy workflow, remote smoke script, deployed Playwright
+tests, final live smoke script, and AWS log/health review.

@@ -11,7 +11,7 @@ Runs a local end-to-end smoke flow against a running backend:
 - API health.
 - Tier 1 deterministic diagnostic flow.
 - Tier 2 technician match, appointment hold, and appointment booking.
-- Twilio Gather fallback webhook flow.
+- Twilio Gather troubleshooting plus voice appointment proposal and booking.
 - Tier 3 upload link, upload token, presigned S3/MinIO POST, upload completion,
   and deterministic image analysis.
 - Optional frontend React shell and upload-route checks.

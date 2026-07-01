@@ -31,17 +31,17 @@ Application Load Balancer:
 - one ECS/Fargate service for the API, Twilio webhooks, and ConversationRelay
   WebSocket endpoint,
 - one ECS/Fargate one-off migration task that runs the same backend image with
-  `alembic upgrade head`,
+  `alembic upgrade head && python -m app.seed`,
 - one ECS/Fargate worker service or scheduled task for Python async processing
   if SQS vision processing needs a long-running worker. If Phase 5 shows that
   Lambda is materially simpler for the worker, record that as a narrow exception
   in a later ADR.
 
-Alembic migrations must run as a separate deployment step before traffic is
-shifted to the new backend service revision. The migration runner must use
-least-privilege IAM, read the database secret from AWS Secrets Manager, and run
-with deployment-level concurrency controls so two migrations cannot run at the
-same time.
+Alembic migrations and idempotent technician reference-data seeding must run as
+a separate deployment step before traffic is shifted to the new backend service
+revision. The migration runner must use least-privilege IAM, read the database
+secret from AWS Secrets Manager, and run with deployment-level concurrency
+controls so two migration/seed tasks cannot run at the same time.
 
 The API service must assume the schema is already current. It may run lightweight
 health checks, but it must not mutate schema on import, startup, or request.
@@ -56,7 +56,7 @@ health checks, but it must not mutate schema on import, startup, or request.
 - GitHub Actions deployment must include an explicit migration step between
   Terraform/app packaging and ECS service rollout.
 - Local development continues to run `alembic upgrade head` directly.
-- AWS deployment runbooks must document migration execution and rollback
+- AWS deployment runbooks must document migration/seed execution and rollback
   expectations.
 - Fargate plus ALB has higher idle cost than Lambda/API Gateway for very low
   traffic, but it reduces architecture risk for the take-home.

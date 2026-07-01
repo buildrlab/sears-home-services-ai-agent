@@ -33,9 +33,9 @@ python3.14 scripts/aws/remote_smoke.py \
 
 Runs the final reviewer-readiness checks against the deployed API. It creates a
 disposable diagnostic session, posts Twilio webhooks with production-valid
-signatures, sends an SES upload-link email to a verified recipient, uploads a
-tiny PNG through the presigned S3 POST, runs image analysis, and verifies the
-session history event.
+signatures, verifies voice appointment proposal and booking confirmation, sends
+an SES upload-link email, uploads a tiny PNG through the presigned S3 POST, runs
+image analysis, and verifies the session history event.
 
 Usage:
 
@@ -46,8 +46,8 @@ AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py \
 ```
 
 The default recipient is under the verified `shs.buildrlab.com` SES domain.
-Use another recipient only after SES production access is approved or the
-recipient is verified in the SES sandbox.
+SES send is implemented and verified; the account is currently in sandbox mode
+with production access requested.
 
 ## `deploy_preflight.py`
 

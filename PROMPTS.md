@@ -1627,6 +1627,68 @@ constraint for arbitrary external recipients.
 - `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
   passed with external GitHub/AWS network access.
 
+## 2026-07-01 Original PDF Gap Closure
+
+### Prompt
+
+The user asked the assistant to add all remaining functionality from the
+original take-home PDF with no gaps, treat SES as complete because sandbox mode
+is active and production access has been requested, and defer only the final
+real phone call check.
+
+### Response
+
+The assistant implemented the remaining strict PDF gaps. The deterministic
+diagnostic path now gives safe appliance/symptom troubleshooting guidance before
+scheduling. The Twilio Gather voice flow now asks for caller availability,
+creates the first matching technician appointment hold, proposes the slot to the
+caller, books only after caller confirmation, and speaks the appointment
+confirmation code. The AWS migration task now runs idempotent technician seeding
+after Alembic so deployed scheduling has representative technician data.
+
+The local reviewer smoke and final live smoke scripts were extended to verify
+voice appointment proposal and booking confirmation. Documentation was updated
+to treat SES send as implemented and verified, with sandbox quota and production
+access request recorded as operational account status rather than an
+implementation gap.
+
+### Files Changed
+
+- `backend/app/agent/providers.py`
+- `backend/app/services/scheduling.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/infra/main.tf`
+- `backend/infra/README.md`
+- `backend/tests/test_diagnostics_service.py`
+- `backend/tests/test_scheduling_service.py`
+- `backend/tests/test_twilio_voice.py`
+- `scripts/reviewer/local_smoke.py`
+- `scripts/reviewer/README.md`
+- `scripts/aws/final_live_smoke.py`
+- `scripts/aws/README.md`
+- `tests/test_reviewer_scripts.py`
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/adr/0006-run-python-backend-on-fargate-with-separate-migration-task.md`
+- `docs/technical-design.md`
+- `docs/submission-hardening.md`
+- `docs/runbooks/aws-testing.md`
+
+### Verification
+
+- Backend `.venv/bin/python -W error -m pytest` passed with 64 tests.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 65 tests.
+- `backend/.venv/bin/ruff check backend scripts tests` passed.
+- `docker compose config --quiet` passed.
+- `actionlint .github/workflows/*.yml` passed.
+- Ruby YAML parsing passed for all GitHub workflow files.
+- `scripts/terraform/validate.sh` passed for all Terraform stacks after
+  provider-registry network access was allowed.
+- `python3.14 scripts/aws/final_live_smoke.py --help` passed.
+- `git diff --check` passed.
+
 ## 2026-07-01 Post-Merge Deploy for Destroy Workflow Branch
 
 ### Prompt

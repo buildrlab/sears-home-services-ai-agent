@@ -367,7 +367,29 @@ def run_reviewer_smoke(
     )
     if "<Gather" not in gather_twiml:
         raise SmokeError("Twilio Gather webhook did not return Gather TwiML.")
-    checks.append(CheckResult("twilio_gather_fallback", "ok"))
+    proposal_twiml = client.post_form(
+        "/twilio/voice/gather",
+        {
+            "CallSid": f"CAREVIEWER{session_id}",
+            "From": "+15550100001",
+            "To": "+17373559397",
+            "SpeechResult": "Any morning or afternoon soonest works.",
+        },
+    )
+    if "I found an appointment" not in proposal_twiml:
+        raise SmokeError("Twilio Gather webhook did not propose an appointment.")
+    confirmation_twiml = client.post_form(
+        "/twilio/voice/gather",
+        {
+            "CallSid": f"CAREVIEWER{session_id}",
+            "From": "+15550100001",
+            "To": "+17373559397",
+            "SpeechResult": "Yes, book it.",
+        },
+    )
+    if "appointment is confirmed" not in confirmation_twiml:
+        raise SmokeError("Twilio Gather webhook did not confirm appointment booking.")
+    checks.append(CheckResult("twilio_voice_booking", "confirmed"))
 
     upload_link = client.post_json(
         f"/diagnostics/sessions/{session_id}/upload-link",

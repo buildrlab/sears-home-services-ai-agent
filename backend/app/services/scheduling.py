@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
 from secrets import token_hex
 
 from sqlalchemy import func, select
@@ -15,8 +16,26 @@ from app.exceptions import (
     SlotUnavailableError,
 )
 from app.models import Appointment, AppointmentStatus, Customer, Technician
-from app.repositories import TechnicianMatch, TechnicianRepository
+from app.repositories import AvailabilityWindow, TechnicianMatch, TechnicianRepository
 from app.schemas import AppointmentHoldRequest, CustomerCreate
+
+DAY_NAMES = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+MORNING_END = time(12)
+AFTERNOON_START = time(12)
+
+
+@dataclass(frozen=True)
+class AvailabilityPreference:
+    day_parts: frozenset[str]
+    weekdays: frozenset[int]
 
 
 class SchedulingService:
@@ -72,6 +91,47 @@ class SchedulingService:
                 "The requested appointment slot is no longer available."
             ) from exc
         return self.get_appointment(appointment.id)
+
+    def create_first_available_hold(
+        self,
+        *,
+        zip_code: str,
+        appliance_type: str,
+        customer: CustomerCreate,
+        issue_summary: str,
+        availability_preference: str,
+        now: datetime | None = None,
+        duration_minutes: int = 120,
+    ) -> Appointment:
+        matches = self.find_matches(zip_code=zip_code, appliance_type=appliance_type)
+        if not matches:
+            raise SlotUnavailableError(
+                "No technician is available for the requested ZIP code and appliance type."
+            )
+
+        preference = parse_availability_preference(availability_preference)
+        candidate_now = now or _utc_now()
+        for match in matches:
+            for scheduled_start in candidate_starts(
+                match.availability,
+                preference=preference,
+                now=candidate_now,
+                duration_minutes=duration_minutes,
+            ):
+                request = AppointmentHoldRequest(
+                    customer=customer,
+                    technician_id=match.id,
+                    appliance_type=appliance_type,
+                    zip_code=zip_code,
+                    scheduled_start=scheduled_start,
+                    duration_minutes=duration_minutes,
+                    issue_summary=issue_summary,
+                )
+                try:
+                    return self.create_hold(request)
+                except (InvalidSchedulingRequestError, SlotUnavailableError):
+                    continue
+        raise SlotUnavailableError("No matching technician time slot is available.")
 
     def book_appointment(self, appointment_id: int) -> Appointment:
         now = _utc_now()
@@ -245,3 +305,64 @@ def _to_utc_minute(value: datetime) -> datetime:
 
 def _utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
+
+
+def parse_availability_preference(text: str) -> AvailabilityPreference:
+    normalized = text.lower()
+    day_parts: set[str] = set()
+    if "morning" in normalized or "am" in normalized:
+        day_parts.add("morning")
+    if "afternoon" in normalized or "pm" in normalized:
+        day_parts.add("afternoon")
+    if "any" in normalized or "whatever" in normalized or "soonest" in normalized:
+        day_parts.update({"morning", "afternoon"})
+    weekdays = {
+        weekday
+        for day_name, weekday in DAY_NAMES.items()
+        if day_name in normalized or day_name[:3] in normalized
+    }
+    return AvailabilityPreference(frozenset(day_parts), frozenset(weekdays))
+
+
+def candidate_starts(
+    availability: tuple[AvailabilityWindow, ...],
+    *,
+    preference: AvailabilityPreference,
+    now: datetime,
+    duration_minutes: int,
+) -> list[datetime]:
+    starts: list[datetime] = []
+    base_date = _to_utc(now).date()
+    for offset in range(0, 91):
+        candidate_date = base_date + timedelta(days=offset)
+        for slot in availability:
+            day_of_week = int(slot.day_of_week)
+            start_time = slot.start_time
+            end_time = slot.end_time
+            if day_of_week != candidate_date.weekday():
+                continue
+            if not _matches_preference(candidate_date, start_time, end_time, preference):
+                continue
+            scheduled_start = datetime.combine(candidate_date, start_time, tzinfo=UTC)
+            scheduled_end = scheduled_start + timedelta(minutes=duration_minutes)
+            if scheduled_start <= _to_utc(now) + timedelta(hours=1):
+                continue
+            if scheduled_end.timetz().replace(tzinfo=None) > end_time:
+                continue
+            starts.append(scheduled_start)
+    return sorted(starts)
+
+
+def _matches_preference(
+    candidate_date: date,
+    start_time: time,
+    end_time: time,
+    preference: AvailabilityPreference,
+) -> bool:
+    if preference.weekdays and candidate_date.weekday() not in preference.weekdays:
+        return False
+    if not preference.day_parts:
+        return True
+    if "morning" in preference.day_parts and start_time < MORNING_END:
+        return True
+    return "afternoon" in preference.day_parts and end_time > AFTERNOON_START

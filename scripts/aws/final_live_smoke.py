@@ -219,6 +219,36 @@ def run_live_smoke(
     if "<Gather" not in gather_twiml:
         raise FinalSmokeError("Signed Twilio Gather webhook did not return Gather TwiML.")
 
+    proposal_twiml = post_signed_twilio_form(
+        client,
+        "/twilio/voice/gather",
+        {
+            "CallSid": call_sid,
+            "From": "+15550100001",
+            "To": "+17373559397",
+            "SpeechResult": "Any morning or afternoon soonest works.",
+            "CallStatus": "in-progress",
+        },
+        auth_token=twilio_auth_token,
+    )
+    if "I found an appointment" not in proposal_twiml:
+        raise FinalSmokeError("Signed Twilio Gather webhook did not propose an appointment.")
+
+    confirmation_twiml = post_signed_twilio_form(
+        client,
+        "/twilio/voice/gather",
+        {
+            "CallSid": call_sid,
+            "From": "+15550100001",
+            "To": "+17373559397",
+            "SpeechResult": "Yes, book it.",
+            "CallStatus": "in-progress",
+        },
+        auth_token=twilio_auth_token,
+    )
+    if "appointment is confirmed" not in confirmation_twiml:
+        raise FinalSmokeError("Signed Twilio Gather webhook did not confirm appointment booking.")
+
     post_signed_twilio_form(
         client,
         "/twilio/voice/status",
@@ -230,7 +260,7 @@ def run_live_smoke(
         },
         auth_token=twilio_auth_token,
     )
-    checks.append(CheckResult("twilio_signed_webhooks", "ok"))
+    checks.append(CheckResult("twilio_voice_booking", "signed_webhooks_confirmed"))
 
     upload_link = client.post_json(
         f"/diagnostics/sessions/{session_id}/upload-link",
@@ -416,8 +446,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--email-to",
         default="no-reply@shs.buildrlab.com",
         help=(
-            "Recipient for SES upload-link delivery. In SES sandbox this must be "
-            "a verified email/domain recipient."
+            "Recipient for SES upload-link delivery. Use a verified recipient while "
+            "the AWS account remains in SES sandbox mode."
         ),
     )
     parser.add_argument(
