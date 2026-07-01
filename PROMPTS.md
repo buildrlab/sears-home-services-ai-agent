@@ -420,6 +420,41 @@ to use a PostgreSQL 18-compatible named volume mounted at `/var/lib/postgresql`.
   passed against local PostgreSQL 18, Mailpit, MinIO, and Uvicorn.
 - `git diff --check` passed.
 
+## 2026-07-01 Deploy Preflight Tooling
+
+### Prompt
+
+The active goal continued after Phase 9 repo-side hardening merged, with live
+AWS deployment still blocked by GitHub/AWS credential configuration.
+
+### Response
+
+The assistant added a read-only AWS deploy preflight script. It checks local
+`gh` and `aws` availability, GitHub CLI authentication, the GitHub deployment
+environment, required repository secrets, required repository variables, and AWS
+caller identity before the AWS deploy workflow is triggered. The script now
+short-circuits GitHub API checks when `gh auth status` is already failing, which
+makes the current blocker output clearer.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/runbooks/aws-testing.md`
+- `scripts/aws/README.md`
+- `scripts/aws/deploy_preflight.py`
+- `tests/test_aws_deploy_preflight.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+  passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 30 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `python3.14 scripts/aws/deploy_preflight.py --json` exited nonzero as expected
+  and reported invalid local `gh` auth plus missing AWS credentials.
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt
