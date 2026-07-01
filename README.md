@@ -184,6 +184,16 @@ python3.14 scripts/reviewer/local_smoke.py \
 Add `--frontend-base-url http://127.0.0.1:5173` when the Vite frontend is also
 running. See [Reviewer Scripts](scripts/reviewer/README.md).
 
+Before final submission, run the read-only readiness audit:
+
+```bash
+python3.14 scripts/reviewer/final_readiness.py
+```
+
+This audit fails closed until the live GitHub/AWS deployment gates pass. A
+nonzero result is expected before `gh` auth, AWS credentials, GitHub deployment
+configuration, branch protection, and remote smoke tests are complete.
+
 ## Twilio Access
 
 Twilio should be provisioned early. ConversationRelay requires account onboarding and AI/ML addendum acceptance before it can be the primary voice path. If ConversationRelay is not enabled in time, Twilio Gather remains the guaranteed fallback path.
