@@ -2425,3 +2425,59 @@ unchecked task is marked complete.
   remaining unchecked tasks.
 - GitHub Actions run `28549578604` completed successfully for the production
   AWS deploy.
+
+## 2026-07-01 Voice Upload Email Follow-Up
+
+### Prompt
+
+The user reported that they still did not receive an email after the latest
+voice upload test. The user then asked to remove the standalone Email Flow
+section from `docs/pre-submit-checklist.md`, renumber Logs and Cloud Health to
+section 6, and state in the Tier 3 Upload Call section that email will not
+arrive for unverified recipient addresses while SES production access is
+unavailable.
+
+### Response
+
+The assistant inspected the live diagnostic sessions and found the latest voice
+session did not call `create_upload_link`; the agent asked for/confirmed an
+email address, then returned to the normal diagnostic/scheduling flow. The
+assistant also created a replacement upload link for the latest session to the
+verified test recipient; the live API returned `email_sent=true`.
+
+The assistant then hardened the voice upload path:
+
+- Twilio Gather now bypasses the LLM when the recent voice context is clearly
+  collecting or confirming an upload-link email.
+- If the previous assistant prompt asked for an upload email and the caller says
+  a valid spoken email, the upload link is sent immediately.
+- If the previous assistant prompt asked to confirm an email and the caller says
+  `Correct`, `Yes`, or an equivalent confirmation, the upload link is sent to
+  the displayed email.
+- Spoken-email parsing now handles Twilio ASR variants such as `A g m a i l dot
+  c o m` for `@gmail.com`.
+
+The assistant updated the pre-submit checklist:
+
+- Removed `## 6. Email Flow`.
+- Renumbered `Logs and Cloud Health` to `## 6`.
+- Renumbered the following sections sequentially.
+- Added the SES sandbox/unverified-recipient caveat under `Tier 3 Upload Call`.
+
+### Files Changed
+
+- `backend/app/agent/extraction.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_extraction.py`
+- `backend/tests/test_twilio_voice.py`
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_extraction.py tests/test_twilio_voice.py`
+  passed from `backend/` with 31 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 130 tests.
+- Checklist scan confirmed the Email Flow heading is removed, Logs and Cloud
+  Health is section 6, and no unchecked tasks remain.

@@ -205,23 +205,15 @@ account has that product enabled.
 - [x] Confirm the agent creates or says it can send the secure upload link.
 - [x] Confirm the email arrives. For SES sandbox mode, send only to a verified
   recipient.
+- [x] State that email will not arrive for unverified recipient addresses while
+  SES production access is unavailable; this should be resolved after AWS
+  approves SES production mode.
 - [x] Open the upload link.
 - [x] Upload a valid appliance photo.
 - [x] Confirm upload completion in the browser.
 - [x] Confirm image analysis appears in the dashboard/session history.
 
-## 6. Email Flow
-
-- [x] Confirm SES identity/domain status is verified.
-- [x] Confirm SES sandbox status is understood. Sandbox supports 200 emails/day
-  and only verified recipients until production access is approved.
-- [x] Send an upload link to the test recipient.
-- [x] Confirm subject is `Sears Home Services appliance photo upload`.
-- [x] Confirm the link points to `https://shs.buildrlab.com/uploads/<token>`.
-- [x] Confirm expired or invalid upload links show a clear browser error.
-- [x] Confirm no token or email secrets are printed in application logs.
-
-## 7. Logs and Cloud Health
+## 6. Logs and Cloud Health
 
 After the manual tests, inspect:
 
@@ -233,11 +225,11 @@ After the manual tests, inspect:
 - [x] SQS DLQ is empty.
 - [x] CloudWatch backend logs show no unhandled exceptions.
 - [x] CloudWatch worker logs show no unhandled exceptions.
-- [x] SES sending metrics show accepted email.
+- [x] SES sending metrics show accepted email for verified recipients.
 - [x] Twilio call logs show successful webhook responses.
 - [x] Browser console has no unexpected errors on deployed Playwright/manual flows.
 
-## 8. Product Data Decision
+## 7. Product Data Decision
 
 The current implementation does not store a Sears product catalog. It stores and
 uses:
@@ -280,7 +272,7 @@ curated product knowledge layer:
 For this take-home, ask for model or serial number only as optional context. Do
 not block diagnosis or scheduling when the caller does not know it.
 
-## 9. Submission Package
+## 8. Submission Package
 
 Before sending the submission, prepare:
 

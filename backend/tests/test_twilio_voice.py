@@ -13,7 +13,15 @@ from twilio.request_validator import RequestValidator
 from app.config import Settings, get_settings
 from app.dependencies import get_db_session
 from app.main import create_app
-from app.models import Appointment, AppointmentStatus, CallEvent, CallSession, ImageUpload
+from app.models import (
+    Appointment,
+    AppointmentStatus,
+    CallEvent,
+    CallSession,
+    DiagnosticEvent,
+    DiagnosticEventRole,
+    ImageUpload,
+)
 from app.seed import seed_reference_data
 from app.services.twilio_voice import TwilioVoiceService, parse_websocket_payload
 
@@ -469,6 +477,83 @@ def test_gather_response_creates_upload_link_after_collecting_email(
         if event.tool_name is not None
     ]
     assert "create_upload_link" in tool_names
+
+
+def test_gather_response_creates_upload_link_from_spoken_email_asr_variant(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAUPLOADSPELLED")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    upload_request_params = incoming_params | {
+        "SpeechResult": "My refrigerator is leaking in 75201 and I can send a photo."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=upload_request_params,
+        headers=_signed_headers("/twilio/voice/gather", upload_request_params),
+    )
+
+    email_params = incoming_params | {
+        "SpeechResult": "D a m i e n dot g a l l a g h e r A g m a i l dot c o m."
+    }
+    upload_link_response = client.post(
+        "/twilio/voice/gather",
+        data=email_params,
+        headers=_signed_headers("/twilio/voice/gather", email_params),
+    )
+
+    assert upload_link_response.status_code == 200
+    assert "secure photo upload link" in upload_link_response.text
+    upload = db_session.scalars(select(ImageUpload)).one()
+    assert upload.status == "pending_upload"
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.customer_email == "damien.gallagher@gmail.com"
+
+
+def test_gather_response_sends_upload_link_after_email_confirmation(
+    db_session: Session,
+) -> None:
+    service = TwilioVoiceService(
+        db_session,
+        Settings(
+            environment="test",
+            database_url="sqlite+pysqlite:///:memory:",
+            public_base_url=BASE_URL,
+            twilio_auth_token=TWILIO_AUTH_TOKEN,
+            twilio_validate_requests=False,
+            upload_link_base_url="https://shs.test/uploads",
+        ),
+    )
+    call_session = service.create_or_get_call_session(_twilio_params(call_sid="CACONFIRMEMAIL"))
+    assert call_session.diagnostic_session is not None
+    diagnostic_session = call_session.diagnostic_session
+    diagnostic_session.appliance_type = "refrigerator"
+    diagnostic_session.symptoms = ["leaking"]
+    diagnostic_session.zip_code = "75201"
+    db_session.add(
+        DiagnosticEvent(
+            session=diagnostic_session,
+            role=DiagnosticEventRole.ASSISTANT.value,
+            content=(
+                "I heard the email as **damien.gallagher@gmail.com**. "
+                "Please confirm that is correct."
+            ),
+        )
+    )
+    db_session.flush()
+
+    message = service.process_speech(call_session, "Correct.")
+
+    assert "secure photo upload link" in message
+    upload = db_session.scalars(select(ImageUpload)).one()
+    assert upload.status == "pending_upload"
+    assert diagnostic_session.customer_email == "damien.gallagher@gmail.com"
 
 
 def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:

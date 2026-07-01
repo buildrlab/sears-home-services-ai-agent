@@ -128,9 +128,18 @@ def extract_spoken_email(text: str) -> str | None:
 
 
 def _replace_spoken_at(text: str) -> str:
-    normalized = text
-    for spoken in (" at sign ", " at symbol ", " at "):
-        normalized = normalized.replace(spoken, " @ ")
+    normalized = re.sub(r"\b(?:at sign|at symbol|at)\b", " @ ", text)
+    if "@" not in normalized:
+        for domain in ("gmail", "yahoo", "hotmail", "outlook", "icloud", "aol"):
+            domain_pattern = r"\s*".join(domain)
+            normalized = re.sub(
+                rf"\ba\s+(?={domain_pattern}\s+\b(?:dot|period|point)\b\s+(?:[a-z]\s*){{2,}})",
+                " @ ",
+                normalized,
+                count=1,
+            )
+            if "@" in normalized:
+                break
     return normalized
 
 
@@ -178,15 +187,11 @@ def _normalize_spoken_email_domain(text: str) -> str:
 def _replace_spoken_email_symbols(text: str, *, dot_marker: str = " . ") -> str:
     normalized = text
     replacements = {
-        " dot ": dot_marker,
-        " period ": dot_marker,
-        " point ": dot_marker,
-        " underscore ": " _ ",
-        " under score ": " _ ",
-        " dash ": " - ",
-        " hyphen ": " - ",
-        " plus ": " + ",
+        r"\b(?:dot|period|point)\b": dot_marker,
+        r"\b(?:underscore|under score)\b": " _ ",
+        r"\b(?:dash|hyphen)\b": " - ",
+        r"\bplus\b": " + ",
     }
     for spoken, symbol in replacements.items():
-        normalized = normalized.replace(spoken, symbol)
+        normalized = re.sub(spoken, symbol, normalized)
     return normalized

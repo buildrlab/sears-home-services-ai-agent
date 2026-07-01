@@ -25,3 +25,7 @@ def test_extract_email_accepts_spelled_voice_address() -> None:
         extract_email("D a m i e n dot g a l l a g h e r at gmail dot com.")
         == "damien.gallagher@gmail.com"
     )
+    assert (
+        extract_email("D a m i e n dot g a l l a g h e r A g m a i l dot c o m.")
+        == "damien.gallagher@gmail.com"
+    )
