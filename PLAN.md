@@ -76,7 +76,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
-| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, deploy configuration script, branch protection script, and branch protection recommendations are merged into `dev` through PRs #12, #16, and #17. Live AWS deployment is blocked on applying GitHub deployment configuration, applying branch protection, and AWS credentials. | Refresh local GitHub/AWS auth, run the GitHub configuration scripts, rerun deploy preflight, then run the AWS deploy workflow. |
+| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, deploy configuration script, branch protection script, and branch protection recommendations are merged into `dev` through PRs #12, #16, and #17. Local GitHub auth, AWS SSO for the Sears workload account, and `dev` branch protection are now verified. Live AWS deployment is blocked on creating/configuring the GitHub `prod` environment with required variables and secrets. | Confirm `AWS_DEVOPS_ACCOUNT_ID`, export `AWS_DEVOPS_ROLE_ARN`, `OPENAI_API_KEY`, and `TWILIO_AUTH_TOKEN`, run `scripts/github/configure_deploy.py --include-secrets --apply`, rerun deploy preflight, then run the AWS deploy workflow. |
 | Phase 9: Submission Hardening | In Progress | Repo-side hardening docs, reviewer local smoke script, script tests, full local checks, dependency audits, Terraform validation, Trivy scans, Docker Compose validation, and local reviewer smoke are merged into `dev` through PR #14. Live AWS reviewer gates remain blocked on credentials/configuration. | Complete live AWS reviewer gates after credentials and deployment configuration are available. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
@@ -615,8 +615,10 @@ Current GitHub configuration check:
 - 2026-07-01: GitHub Environments API returned no configured environments.
 - 2026-07-01: `dev` branch protection API returned `Branch not protected`.
 - 2026-07-01: `gh auth status` reported the local GitHub CLI token for `damogallagher` is invalid; PR #12 was created and merged through the GitHub connector instead.
-- 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex cannot run Terraform deploys against AWS until AWS credentials or SSO login are available.
-- 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
+- 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex could not run Terraform deploys against AWS until AWS credentials or SSO login were available.
+- 2026-07-01: The user restored GitHub CLI auth, ran `aws sso login --profile sears`, exported `AWS_PROFILE=sears`, and `scripts/aws/deploy_preflight.py --json` confirmed `github_cli_auth` and `aws_identity` now pass with account `710045722740`.
+- 2026-07-01: `python3.14 scripts/github/configure_branch_protection.py --apply` applied the conservative `dev` branch protection policy requiring `secret-scan` and `dependency-audit`, blocking force pushes/deletions, and requiring conversation resolution.
+- 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` now passes all branch protection checks and AWS identity; remaining blockers are the missing GitHub `prod` environment plus environment-scoped secrets and variables.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -634,7 +636,7 @@ Latest local verification:
 - 2026-07-01: PR #16 (`codex/github-deploy-config-script` into `dev`) passed Scripts CI and Security CI, then merged at `3ea463eb3a7bf3663a5bc6b452c5e471f8bf94f9`.
 - 2026-07-01: PR #17 (`codex/github-branch-protection-script` into `dev`) passed Scripts CI and Security CI, then merged at `81262d385062b072515a985664d8279768e526eb`.
 - 2026-07-01: PR #18 (`codex/deploy-preflight-github-policy` into `dev`) passed Scripts CI and Security CI, then merged at `0a7f080f17044686c93472d7fbcb81ba998f328c`.
-- 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero on the merged `dev` branch and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
+- 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero on the merged `dev` branch and reports the current live blockers: missing GitHub `prod` environment plus environment-scoped secrets and variables.
 - 2026-07-01: Deploy preflight unit tests passed as part of the root script test suite.
 
 Exit criteria:
