@@ -22,6 +22,7 @@ resource "aws_kms_alias" "database" {
 
 resource "aws_ecr_repository" "backend" {
   name                 = "${local.name_prefix}-backend"
+  force_delete         = var.ecr_force_delete
   image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
@@ -147,7 +148,7 @@ resource "aws_lb" "api" {
   subnets                    = var.public_subnet_ids
   drop_invalid_header_fields = true
 
-  enable_deletion_protection = var.environment == "prod"
+  enable_deletion_protection = var.enable_alb_deletion_protection == null ? var.environment == "prod" : var.enable_alb_deletion_protection
 }
 
 resource "aws_lb_target_group" "api" {
@@ -299,7 +300,8 @@ resource "aws_rds_cluster_instance" "database" {
 }
 
 resource "aws_s3_bucket" "uploads" {
-  bucket = local.upload_bucket_name
+  bucket        = local.upload_bucket_name
+  force_destroy = var.upload_bucket_force_destroy
 }
 
 resource "aws_s3_bucket_public_access_block" "uploads" {

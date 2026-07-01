@@ -28,6 +28,7 @@ REQUIRED_FILES = (
     "scripts/github/configure_branch_protection.py",
     ".github/dependabot.yml",
     ".github/workflows/aws-deploy.yml",
+    ".github/workflows/aws-destroy.yml",
 )
 
 REQUIRED_ADRS = (

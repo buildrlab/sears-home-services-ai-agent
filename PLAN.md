@@ -578,25 +578,26 @@ Deliverables:
 - [x] Deployment workflow supports first-backend bootstrap with zero running tasks before the first ECR image exists.
 - [x] Deployment workflow verifies/populates OpenAI and Twilio Secrets Manager values before ECS task launch.
 - [x] Deployment workflow builds and uploads the React frontend to S3 and invalidates CloudFront.
+- [x] Manual GitHub Actions AWS destroy workflow for end-of-project Terraform teardown.
 - [x] Remote smoke script checks API health, frontend shell, and upload route SPA fallback.
 - [x] Deploy preflight script checks GitHub CLI auth, GitHub environment, environment-scoped secrets/variables, branch protection, and AWS caller identity before a deploy run.
 - [x] Dry-run-capable GitHub deploy configuration script can create/update the deployment environment, required variables, and optional environment-scoped secrets after `gh` authentication is restored.
 - [x] Dry-run-capable GitHub branch protection script can apply the conservative `dev` policy after `gh` authentication is restored.
 - [x] GitHub deployment environment variables/secrets configured.
 - [x] AWS deploy workflow run in plan mode after shared state exists.
-- [ ] AWS deploy workflow run in apply mode.
+- [x] AWS deploy workflow run in apply mode.
 - [x] Branch protection recommendations documented.
 - [ ] Branch protection applied after required-check policy is approved.
 
 Remote validation:
 
-- [ ] Deploy AWS environment through `.github/workflows/aws-deploy.yml`.
-- [ ] Run `scripts/aws/remote_smoke.py` against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
-- [ ] Run Playwright against AWS frontend.
+- [x] Deploy AWS environment through `.github/workflows/aws-deploy.yml`.
+- [x] Run `scripts/aws/remote_smoke.py` against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
+- [x] Run Playwright against AWS frontend.
 - [ ] Place real Twilio call to deployed webhook.
 - [ ] Send SES upload email.
 - [ ] Upload image and verify analysis.
-- [ ] Review CloudWatch logs, ALB target health, ECS deployments, Aurora connectivity, SQS DLQ, SES delivery, and frontend browser console.
+- [x] Review CloudWatch logs, ALB target health, ECS deployments, Aurora connectivity, SQS DLQ, SES identity/DKIM, and frontend browser console.
 
 Required GitHub deployment configuration:
 
@@ -625,6 +626,12 @@ Current GitHub configuration check:
 - 2026-07-01: AWS Deploy workflow run `28506856858` was triggered from `dev` in first-deploy `apply` mode with `bootstrap_backend=true`. Shared Terraform apply and backend bootstrap apply succeeded, creating the initial backend AWS resources. The run then failed in `Publish backend runtime secrets` because workload-role AWS CLI steps attempted to run `terraform output` against the central S3 state bucket and received S3 `403 Forbidden`. The deploy workflow is being patched to capture backend/frontend Terraform outputs before assuming the workload role.
 - 2026-07-01: AWS Deploy workflow run `28507701783` passed from `dev` in `plan` mode after shared/backend bootstrap state existed, including shared, backend, and frontend Terraform plans.
 - 2026-07-01: AWS Deploy workflow run `28507811871` was triggered from `dev` in `apply` mode with `bootstrap_backend=false`. Shared apply, backend plan, backend output capture, runtime secret publishing, backend image build/push, and backend Terraform apply succeeded. The run then failed in `Run Alembic migration task` because the migration step used pre-apply task definition revision `:1`, while backend apply had registered revision `:2` and made `:1` inactive. The deploy workflow is being patched to recapture migration outputs after backend apply.
+- 2026-07-01: AWS Deploy workflow run `28508197790` succeeded from `dev` in `apply` mode with `bootstrap_backend=false`, including shared/backend/frontend Terraform, runtime secret publication, backend image build/push, Alembic migration task, frontend upload, CloudFront invalidation, and remote smoke.
+- 2026-07-01: `python3.14 scripts/aws/remote_smoke.py --api-base-url https://api.shs.buildrlab.com --frontend-base-url https://shs.buildrlab.com` passed with API health, frontend shell, and upload route checks.
+- 2026-07-01: Deployed Playwright passed against `https://shs.buildrlab.com`; the dashboard and upload route rendered without console-error failures.
+- 2026-07-01: AWS live checks found Aurora PostgreSQL Serverless v2 available, ECS API and worker services active with completed rollouts, ALB target healthy, SQS vision DLQ empty, SES identity/DKIM verified, and no recent API/migration/worker CloudWatch errors.
+- 2026-07-01: SES account-level production access is still disabled, so arbitrary reviewer/customer email delivery remains gated by SES sandbox approval or verified recipients.
+- 2026-07-01: Added a guarded `.github/workflows/aws-destroy.yml` manual workflow for project teardown. It defaults to plan mode, requires exact confirmation and `delete_data=true` before mutation, destroys frontend then backend then optional shared resources, leaves the shared Terraform state bucket intact, and uses destroy-only Terraform variables to disable deletion protection and allow S3/ECR cleanup.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -647,6 +654,7 @@ Latest local verification:
 - 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero on the merged `dev` branch and reports the current live blockers: missing GitHub `prod` environment plus environment-scoped secrets and variables.
 - 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` now passes all deploy preflight checks after the GitHub `prod` environment, required secrets, and required variables were configured.
 - 2026-07-01: Deploy preflight unit tests passed as part of the root script test suite.
+- 2026-07-01: Destroy workflow validation passed: `actionlint .github/workflows/*.yml`, Ruby YAML parsing for all workflows, `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` with 61 tests, `backend/.venv/bin/ruff check scripts tests`, and `scripts/terraform/validate.sh`.
 
 Exit criteria:
 
@@ -700,6 +708,7 @@ Latest local verification:
 - 2026-07-01: Trivy `0.72.0` config scan passed with no HIGH/CRITICAL findings.
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
 - 2026-07-01: `scripts/reviewer/local_smoke.py --api-base-url http://127.0.0.1:8000` passed against a temporary PostgreSQL 18 database, Mailpit, MinIO, and local Uvicorn backend; it verified Tier 1 diagnostics, Tier 2 appointment booking, Twilio Gather fallback, Tier 3 object upload, deterministic image analysis, and session history.
+- 2026-07-01: Current branch verification passed: backend `.venv/bin/python -W error -m pytest` with 62 tests, backend Ruff, root script unit tests with 61 tests, frontend `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `actionlint`, Ruby workflow YAML parsing, `scripts/terraform/validate.sh`, and `git diff --check`.
 
 Exit criteria:
 

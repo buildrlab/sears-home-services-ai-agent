@@ -34,6 +34,11 @@ class FakeEmailSender:
         )
 
 
+class FailingEmailSender:
+    def send_upload_link(self, *, to_email: str, upload_url: str, expires_at: datetime) -> None:
+        raise RuntimeError("email provider rejected recipient")
+
+
 class FakeStorageClient:
     def __init__(self) -> None:
         self.posts: list[dict[str, object]] = []
@@ -119,10 +124,10 @@ def _diagnostic_session(db_session: Session):
 def _upload_service(
     db_session: Session,
     *,
-    email_sender: FakeEmailSender | None = None,
+    email_sender: FakeEmailSender | FailingEmailSender | None = None,
     storage_client: FakeStorageClient | None = None,
     vision_queue: FakeVisionQueue | None = None,
-) -> tuple[UploadService, FakeEmailSender, FakeStorageClient, FakeVisionQueue]:
+) -> tuple[UploadService, FakeEmailSender | FailingEmailSender, FakeStorageClient, FakeVisionQueue]:
     email_sender = email_sender or FakeEmailSender()
     storage_client = storage_client or FakeStorageClient()
     vision_queue = vision_queue or FakeVisionQueue()
@@ -149,7 +154,28 @@ def test_create_upload_link_hashes_token_and_sends_email(db_session: Session) ->
     assert result.upload.status == ImageUploadStatus.PENDING_UPLOAD.value
     assert diagnostic_session.customer_email == "caller@example.test"
     assert email_sender.sent[0]["to_email"] == "caller@example.test"
+    assert result.email_sent is True
+    assert diagnostic_session.events[-1].tool_payload["email_sent"] is True
     assert "caller@example.test" not in diagnostic_session.events[-1].tool_payload["email"]
+
+
+def test_create_upload_link_survives_email_delivery_failure(db_session: Session) -> None:
+    diagnostic_session = _diagnostic_session(db_session)
+    service, _, _, _ = _upload_service(db_session, email_sender=FailingEmailSender())
+
+    result = service.create_upload_link(
+        session_id=diagnostic_session.id,
+        email="Caller@Example.Test",
+    )
+
+    assert result.email_sent is False
+    assert result.upload_url.startswith("https://shs.example.test/upload/")
+    assert result.upload.status == ImageUploadStatus.PENDING_UPLOAD.value
+    event = diagnostic_session.events[-1]
+    assert event.tool_name == "create_upload_link"
+    assert event.tool_payload["email_sent"] is False
+    assert event.tool_payload["email_delivery_error"] == "RuntimeError"
+    assert "caller@example.test" not in event.tool_payload["email"]
 
 
 def test_upload_token_expiry_marks_record_expired(db_session: Session) -> None:
