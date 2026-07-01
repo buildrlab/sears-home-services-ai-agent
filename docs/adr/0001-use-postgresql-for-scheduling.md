@@ -35,7 +35,7 @@ Use SQLAlchemy 2.0 for application data access and Alembic for schema migrations
 
 - Relational constraints and transactions can enforce scheduling correctness.
 - Alembic migrations provide a reviewable schema-change history.
-- Lambda database connections require RDS Proxy and careful pooling.
+- Fargate task database connections require explicit pool sizing and task-count-aware connection limits.
 - PostgreSQL is less serverless-native than DynamoDB, but it fits the scheduling domain better.
 - The schema can encode important invariants with foreign keys, unique constraints, check constraints, and transactional updates.
 - Query flexibility remains high while the scheduling workflow is still evolving during the take-home implementation.
@@ -76,6 +76,6 @@ DynamoDB would be a reasonable choice for high-scale, fixed-access-pattern call/
 Reconsider DynamoDB only if:
 
 - The scheduling access patterns become fixed and extremely high-volume.
-- Aurora cost or VPC/Lambda connection overhead becomes a measured issue.
+- Aurora cost or Fargate-to-Aurora connection overhead becomes a measured issue.
 - The system needs globally distributed low-latency reads/writes beyond the take-home scope.
 - Scheduling is split from call/session state and only ephemeral session data needs a NoSQL store.

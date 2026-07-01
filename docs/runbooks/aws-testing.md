@@ -30,8 +30,28 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 3. Review the Terraform plan in GitHub Actions.
 4. Confirm the DNS plan uses the cross-account `aws.dns` provider against the parent `buildrlab.com` hosted zone.
 5. Confirm the DNS plan does not create a Sears-owned `shs.buildrlab.com` hosted zone.
-6. Merge only after checks and plan are understood.
-7. Deploy through the approved GitHub Actions workflow.
+6. Confirm the backend plan deploys ECS/Fargate services/tasks, not a Lambda API runtime.
+7. Merge only after checks and plan are understood.
+8. Deploy through the approved GitHub Actions workflow.
+
+## Database Migrations
+
+Production Alembic migrations must run outside the normal API runtime. Do not
+run `alembic upgrade head` during container startup, FastAPI startup, Lambda
+import, or request handling.
+
+The Phase 7 deployment path must include an explicit migration step before
+traffic is shifted to the new backend version. The preferred runner is a
+one-off ECS/Fargate task in the application VPC, using the same backend image
+as the API service and a least-privilege migration role:
+
+```bash
+alembic upgrade head
+```
+
+The migration task must read database credentials from AWS Secrets Manager and
+must run with deployment-level concurrency controls so two migrations cannot run
+at the same time.
 
 ## DNS Verification
 
@@ -99,9 +119,9 @@ During or after a call:
 
 After every remote test run, review:
 
-- API Gateway errors.
-- Lambda errors and timeouts.
-- RDS Proxy or Aurora connection issues.
+- ALB target errors.
+- ECS task crashes, deployment failures, and container health check failures.
+- Aurora connection issues.
 - SQS dead-letter queue messages.
 - SES send failures.
 - S3 access denied events.
