@@ -285,7 +285,6 @@ jobs:
           if ! jq -e '
             has("ecr_repository_url") and
             has("ecs_tasks_security_group_id") and
-            has("migration_task_definition_arn") and
             has("openai_api_key_secret_arn") and
             has("twilio_auth_token_secret_arn")
           ' <<< "$backend_outputs" >/dev/null; then
@@ -296,7 +295,6 @@ jobs:
           {
             echo "ecr_repository_url=$(jq -r '.ecr_repository_url.value' <<< "$backend_outputs")"
             echo "ecs_tasks_security_group_id=$(jq -r '.ecs_tasks_security_group_id.value' <<< "$backend_outputs")"
-            echo "migration_task_definition_arn=$(jq -r '.migration_task_definition_arn.value' <<< "$backend_outputs")"
             echo "openai_api_key_secret_arn=$(jq -r '.openai_api_key_secret_arn.value' <<< "$backend_outputs")"
             echo "twilio_auth_token_secret_arn=$(jq -r '.twilio_auth_token_secret_arn.value' <<< "$backend_outputs")"
           } >> "$GITHUB_OUTPUT"
@@ -367,6 +365,25 @@ jobs:
         if: ${{ env.DEPLOY_MODE == 'apply' }}
         run: terraform -chdir=backend/infra apply -auto-approve
 
+      - name: Capture backend deployment outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: backend_deploy
+        run: |
+          set -euo pipefail
+          backend_deploy_outputs="$(terraform -chdir=backend/infra output -json)"
+          if ! jq -e '
+            has("ecs_tasks_security_group_id") and
+            has("migration_task_definition_arn")
+          ' <<< "$backend_deploy_outputs" >/dev/null; then
+            echo "::error::Backend Terraform deployment outputs are unavailable after backend apply."
+            echo "$backend_deploy_outputs"
+            exit 1
+          fi
+          {
+            echo "ecs_tasks_security_group_id=$(jq -r '.ecs_tasks_security_group_id.value' <<< "$backend_deploy_outputs")"
+            echo "migration_task_definition_arn=$(jq -r '.migration_task_definition_arn.value' <<< "$backend_deploy_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run Alembic migration task
         if: ${{ env.DEPLOY_MODE == 'apply' }}
         env:
@@ -374,8 +391,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
           AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
           ECS_CLUSTER_NAME: ${{ steps.shared.outputs.ecs_cluster_name }}
-          ECS_TASKS_SECURITY_GROUP_ID: ${{ steps.backend.outputs.ecs_tasks_security_group_id }}
-          MIGRATION_TASK_DEFINITION_ARN: ${{ steps.backend.outputs.migration_task_definition_arn }}
+          ECS_TASKS_SECURITY_GROUP_ID: ${{ steps.backend_deploy.outputs.ecs_tasks_security_group_id }}
+          MIGRATION_TASK_DEFINITION_ARN: ${{ steps.backend_deploy.outputs.migration_task_definition_arn }}
           PRIVATE_SUBNET_IDS: ${{ steps.shared.outputs.private_subnet_ids }}
         run: |
           private_subnets="$(jq -r 'join(",")' <<< "$PRIVATE_SUBNET_IDS")"
