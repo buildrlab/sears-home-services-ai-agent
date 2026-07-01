@@ -57,9 +57,10 @@ Check deployment readiness from the repo root:
 python3.14 scripts/aws/deploy_preflight.py
 ```
 
-This command is read-only. It reports missing GitHub secrets, variables,
-deployment environment configuration, local GitHub CLI auth, and AWS CLI
-credentials before anyone triggers the deploy workflow.
+This command is read-only. It reports missing GitHub environment-scoped secrets
+and variables, deployment environment configuration, `dev` branch protection,
+local GitHub CLI auth, and AWS CLI credentials before anyone triggers the deploy
+workflow.
 
 To configure the GitHub deployment environment after `gh auth login` succeeds:
 
@@ -71,6 +72,13 @@ python3.14 scripts/github/configure_deploy.py \
 
 To also set environment-scoped secrets from local environment variables, add
 `--include-secrets`. See `scripts/github/README.md`.
+
+To configure the conservative `dev` branch protection policy after `gh auth
+login` succeeds:
+
+```bash
+python3.14 scripts/github/configure_branch_protection.py --apply
+```
 
 Terraform assumes these target roles from the devops role:
 

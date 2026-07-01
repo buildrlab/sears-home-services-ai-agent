@@ -76,8 +76,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
-| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, and branch protection recommendations are merged into `dev` through PR #12. Live AWS deployment is blocked on GitHub deployment configuration and AWS credentials. | Configure GitHub environment secrets/variables, refresh local GitHub/AWS auth if Codex should run the deploy, then run the AWS deploy workflow. |
-| Phase 9: Submission Hardening | In Progress | Repo-side hardening docs, reviewer local smoke script, script tests, full local checks, dependency audits, Terraform validation, Trivy scans, Docker Compose validation, and local reviewer smoke are complete on the Phase 9 branch. Live AWS reviewer gates remain blocked on credentials/configuration. | Push/PR/merge Phase 9 repo-side hardening, then complete live AWS reviewer gates after credentials are available. |
+| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, deploy configuration script, branch protection script, and branch protection recommendations are merged into `dev` through PRs #12, #16, and #17. Live AWS deployment is blocked on applying GitHub deployment configuration, applying branch protection, and AWS credentials. | Refresh local GitHub/AWS auth, run the GitHub configuration scripts, rerun deploy preflight, then run the AWS deploy workflow. |
+| Phase 9: Submission Hardening | In Progress | Repo-side hardening docs, reviewer local smoke script, script tests, full local checks, dependency audits, Terraform validation, Trivy scans, Docker Compose validation, and local reviewer smoke are merged into `dev` through PR #14. Live AWS reviewer gates remain blocked on credentials/configuration. | Complete live AWS reviewer gates after credentials and deployment configuration are available. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
 
@@ -579,7 +579,7 @@ Deliverables:
 - [x] Deployment workflow verifies/populates OpenAI and Twilio Secrets Manager values before ECS task launch.
 - [x] Deployment workflow builds and uploads the React frontend to S3 and invalidates CloudFront.
 - [x] Remote smoke script checks API health, frontend shell, and upload route SPA fallback.
-- [x] Deploy preflight script checks GitHub CLI auth, GitHub environment/secrets/variables, and AWS caller identity before a deploy run.
+- [x] Deploy preflight script checks GitHub CLI auth, GitHub environment, environment-scoped secrets/variables, branch protection, and AWS caller identity before a deploy run.
 - [x] Dry-run-capable GitHub deploy configuration script can create/update the deployment environment, required variables, and optional environment-scoped secrets after `gh` authentication is restored.
 - [x] Dry-run-capable GitHub branch protection script can apply the conservative `dev` policy after `gh` authentication is restored.
 - [ ] GitHub deployment environment variables/secrets configured.
@@ -617,6 +617,7 @@ Current GitHub configuration check:
 - 2026-07-01: `gh auth status` reported the local GitHub CLI token for `damogallagher` is invalid; PR #12 was created and merged through the GitHub connector instead.
 - 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex cannot run Terraform deploys against AWS until AWS credentials or SSO login are available.
 - 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
+- 2026-07-01: PRs #16 and #17 added dry-run/apply scripts for GitHub environment configuration and branch protection. `deploy_preflight.py` now validates environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
 

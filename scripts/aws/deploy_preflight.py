@@ -13,6 +13,7 @@ from typing import Protocol
 
 DEFAULT_REPOSITORY = "buildrlab/sears-home-services-ai-agent"
 DEFAULT_ENVIRONMENT = "prod"
+DEFAULT_BRANCH = "dev"
 
 REQUIRED_SECRETS = (
     "AWS_DEVOPS_ROLE_ARN",
@@ -28,6 +29,8 @@ REQUIRED_VARIABLES = {
 }
 
 REQUIRED_VARIABLE_NAMES_WITHOUT_FIXED_VALUE = ("AWS_DEVOPS_ACCOUNT_ID",)
+
+REQUIRED_BRANCH_STATUS_CHECKS = ("secret-scan", "dependency-audit")
 
 
 @dataclass(frozen=True)
@@ -99,8 +102,12 @@ def check_github_environment(repository: str, environment: str, runner: Runner) 
     return Check("github_environment", False, detail)
 
 
-def check_github_secrets(repository: str, runner: Runner) -> list[Check]:
-    result = runner(("gh", "secret", "list", "--repo", repository))
+def check_github_secrets(
+    repository: str,
+    environment: str,
+    runner: Runner,
+) -> list[Check]:
+    result = runner(("gh", "secret", "list", "--repo", repository, "--env", environment))
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip() or "gh secret list failed"
         return [Check("github_secrets", False, detail)]
@@ -115,8 +122,14 @@ def check_github_secrets(repository: str, runner: Runner) -> list[Check]:
     ]
 
 
-def check_github_variables(repository: str, runner: Runner) -> list[Check]:
-    result = runner(("gh", "variable", "list", "--repo", repository))
+def check_github_variables(
+    repository: str,
+    environment: str,
+    runner: Runner,
+) -> list[Check]:
+    result = runner(
+        ("gh", "variable", "list", "--repo", repository, "--env", environment)
+    )
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip() or "gh variable list failed"
         return [Check("github_variables", False, detail)]
@@ -142,6 +155,101 @@ def check_github_variables(repository: str, runner: Runner) -> list[Check]:
     return checks
 
 
+def is_protection_enabled(value: object) -> bool:
+    if isinstance(value, dict):
+        return bool(value.get("enabled"))
+    return bool(value)
+
+
+def required_status_contexts(payload: dict[str, object]) -> set[str]:
+    required_status_checks = payload.get("required_status_checks")
+    if not isinstance(required_status_checks, dict):
+        return set()
+    contexts = {str(item) for item in required_status_checks.get("contexts") or []}
+    for check in required_status_checks.get("checks") or []:
+        if isinstance(check, dict) and check.get("context"):
+            contexts.add(str(check["context"]))
+    return contexts
+
+
+def check_github_branch_protection(
+    repository: str,
+    branch: str,
+    runner: Runner,
+) -> list[Check]:
+    result = runner(("gh", "api", f"repos/{repository}/branches/{branch}/protection"))
+    if result.returncode != 0:
+        detail = (
+            (result.stderr or result.stdout).strip()
+            or f"{branch} branch protection not found"
+        )
+        return [Check("github_branch_protection", False, detail)]
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [Check("github_branch_protection", False, f"invalid JSON: {exc}")]
+    if not isinstance(payload, dict):
+        return [Check("github_branch_protection", False, "expected JSON object")]
+
+    status_checks = payload.get("required_status_checks")
+    strict_ok = (
+        isinstance(status_checks, dict) and status_checks.get("strict") is True
+    )
+    contexts = required_status_contexts(payload)
+    missing_contexts = [
+        context for context in REQUIRED_BRANCH_STATUS_CHECKS if context not in contexts
+    ]
+
+    pull_request_reviews = payload.get("required_pull_request_reviews")
+    conversation_resolution = is_protection_enabled(
+        payload.get("required_conversation_resolution")
+    )
+    force_pushes_allowed = is_protection_enabled(payload.get("allow_force_pushes"))
+    deletions_allowed = is_protection_enabled(payload.get("allow_deletions"))
+    admins_enforced = is_protection_enabled(payload.get("enforce_admins"))
+
+    return [
+        Check(
+            name="github_branch_required_status_checks",
+            ok=strict_ok and not missing_contexts,
+            detail=(
+                "strict with required checks"
+                if strict_ok and not missing_contexts
+                else f"strict={strict_ok}, missing={','.join(missing_contexts) or 'none'}"
+            ),
+        ),
+        Check(
+            name="github_branch_pull_request_required",
+            ok=isinstance(pull_request_reviews, dict),
+            detail=(
+                "configured"
+                if isinstance(pull_request_reviews, dict)
+                else "missing required_pull_request_reviews"
+            ),
+        ),
+        Check(
+            name="github_branch_conversation_resolution",
+            ok=conversation_resolution,
+            detail="required" if conversation_resolution else "not required",
+        ),
+        Check(
+            name="github_branch_blocks_force_pushes",
+            ok=not force_pushes_allowed,
+            detail="blocked" if not force_pushes_allowed else "allowed",
+        ),
+        Check(
+            name="github_branch_blocks_deletions",
+            ok=not deletions_allowed,
+            detail="blocked" if not deletions_allowed else "allowed",
+        ),
+        Check(
+            name="github_branch_admin_bypass",
+            ok=not admins_enforced,
+            detail="admins can bypass" if not admins_enforced else "admins enforced",
+        ),
+    ]
+
+
 def check_aws_identity(runner: Runner, expected_account_id: str | None) -> Check:
     result = runner(("aws", "sts", "get-caller-identity", "--output", "json"))
     if result.returncode != 0:
@@ -165,6 +273,7 @@ def run_preflight(
     *,
     repository: str,
     environment: str,
+    branch: str,
     expected_aws_account_id: str | None,
     runner: Runner = run_command,
 ) -> list[Check]:
@@ -175,8 +284,9 @@ def run_preflight(
         checks.append(gh_auth)
         if gh_auth.ok:
             checks.append(check_github_environment(repository, environment, runner))
-            checks.extend(check_github_secrets(repository, runner))
-            checks.extend(check_github_variables(repository, runner))
+            checks.extend(check_github_secrets(repository, environment, runner))
+            checks.extend(check_github_variables(repository, environment, runner))
+            checks.extend(check_github_branch_protection(repository, branch, runner))
 
     if checks[1].ok:
         checks.append(check_aws_identity(runner, expected_aws_account_id))
@@ -199,6 +309,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"GitHub deployment environment, default {DEFAULT_ENVIRONMENT}.",
     )
     parser.add_argument(
+        "--branch",
+        default=DEFAULT_BRANCH,
+        help=f"GitHub protected branch, default {DEFAULT_BRANCH}.",
+    )
+    parser.add_argument(
         "--expected-aws-account-id",
         default=None,
         help="Optional AWS account ID expected from aws sts get-caller-identity.",
@@ -214,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     checks = run_preflight(
         repository=args.repository,
         environment=args.environment,
+        branch=args.branch,
         expected_aws_account_id=args.expected_aws_account_id,
     )
     ok = all(check.ok for check in checks)
