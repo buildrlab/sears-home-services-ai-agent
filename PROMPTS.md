@@ -651,6 +651,32 @@ configuration scripts.
   expected and reported the current live blockers: invalid local `gh` auth and
   missing AWS credentials through deploy preflight.
 
+## 2026-07-01 Deploy Preflight Success
+
+### Prompt
+
+The user reported that `AWS_PROFILE=sears python3.14
+scripts/aws/deploy_preflight.py --json` passed all checks after configuring the
+GitHub `prod` environment, required environment-scoped secrets, required
+environment-scoped variables, `dev` branch protection, GitHub CLI auth, and AWS
+identity.
+
+### Response
+
+The assistant treated Phase 8 live deployment as unblocked, updated phase
+tracking to show deploy preflight success, and prepared to trigger the AWS
+deploy workflow from `dev`. No secret values were written to the repository.
+
+### Verification
+
+- User-provided `scripts/aws/deploy_preflight.py --json` output showed `"ok":
+  true`.
+- The passing checks included GitHub `prod` environment, `AWS_DEVOPS_ROLE_ARN`,
+  `OPENAI_API_KEY`, `TWILIO_AUTH_TOKEN`, `AWS_DEVOPS_ACCOUNT_ID`,
+  `SHS_WORKLOAD_ACCOUNT_ID`, `SHS_DNS_ACCOUNT_ID`, `SHS_HOSTED_ZONE_ID`,
+  `TF_STATE_BUCKET`, `dev` branch protection checks, and AWS identity
+  `710045722740`.
+
 ## 2026-07-01 Deploy Preflight Progress
 
 ### Prompt
