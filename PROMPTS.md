@@ -525,6 +525,44 @@ remain excluded until an always-run aggregate required check exists.
 - `python3.14 scripts/github/configure_branch_protection.py`
 - `git diff --check`
 
+## 2026-07-01 Deploy Preflight GitHub Policy Checks
+
+### Prompt
+
+The active goal continued after PRs #16 and #17 were merged. The remaining live
+Phase 8 gates were blocked on local GitHub CLI auth, AWS credentials, applying
+GitHub deployment configuration, applying branch protection, and running AWS
+deploy validation.
+
+### Response
+
+The assistant corrected `scripts/aws/deploy_preflight.py` to check
+environment-scoped GitHub secrets and variables for `prod`, matching
+`scripts/github/configure_deploy.py` and the AWS deploy workflow. The assistant
+also added read-only branch protection checks for the conservative `dev` policy:
+strict required Security CI checks, required pull request protection,
+conversation resolution, force-push/deletion blocking, and admin bypass.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/runbooks/aws-testing.md`
+- `scripts/aws/README.md`
+- `scripts/aws/deploy_preflight.py`
+- `tests/test_aws_deploy_preflight.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 40 tests.
+- `backend/.venv/bin/ruff check scripts tests`
+- `python3.14 scripts/aws/deploy_preflight.py --json` exited nonzero as
+  expected and reported the current live blockers: invalid local `gh` auth and
+  missing AWS credentials.
+- `git diff --check`
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

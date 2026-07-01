@@ -35,8 +35,10 @@ Runs read-only checks before triggering `.github/workflows/aws-deploy.yml`:
 
 - `gh` is installed and authenticated.
 - GitHub deployment environment `prod` exists.
-- Required deployment secrets are present.
-- Required deployment variables are present and match the documented values.
+- Required deployment secrets are present in the GitHub environment.
+- Required deployment variables are present in the GitHub environment and match
+  the documented values.
+- The protected branch has the conservative required policy applied.
 - `aws` is installed and can resolve caller identity.
 
 Usage:
@@ -56,4 +58,12 @@ If you know which AWS account the local credentials should resolve to, add:
 ```bash
 python3.14 scripts/aws/deploy_preflight.py \
   --expected-aws-account-id "<account-id>"
+```
+
+To check a non-default GitHub environment or protected branch:
+
+```bash
+python3.14 scripts/aws/deploy_preflight.py \
+  --environment prod \
+  --branch dev
 ```
