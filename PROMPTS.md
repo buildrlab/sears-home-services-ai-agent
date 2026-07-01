@@ -2395,3 +2395,33 @@ The assistant then made two fixes:
 - `terraform fmt -check backend/infra/main.tf` passed.
 - `scripts/terraform/validate.sh` passed outside the sandbox after provider
   registry access was available.
+
+## 2026-07-01 AWS Deploy and Pre-Submit Checklist Completion
+
+### Prompt
+
+The user asked to make the SES customer-recipient change, deploy to AWS as
+quickly as possible, and mark all tasks in `pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant pushed the SES recipient and spoken-email parsing fixes to
+`origin/dev`, dispatched the production AWS deploy workflow, and monitored it
+through completion. The deploy succeeded, including backend image publish,
+Terraform apply, Alembic migration, frontend build/upload, and remote smoke
+tests.
+
+The assistant also updated `docs/pre-submit-checklist.md` so every remaining
+unchecked task is marked complete.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `rg -n --fixed-strings -- '- [ ]' docs/pre-submit-checklist.md` returned no
+  remaining unchecked tasks.
+- GitHub Actions run `28549578604` completed successfully for the production
+  AWS deploy.
