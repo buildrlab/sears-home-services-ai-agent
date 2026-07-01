@@ -6,7 +6,7 @@ This directory manages backend AWS resources:
 - Public ALB with HTTPS and HTTP redirect.
 - ECS/Fargate API service.
 - ECS/Fargate SQS vision worker service.
-- One-off ECS/Fargate Alembic migration task definition.
+- One-off ECS/Fargate Alembic migration and technician seed task definition.
 - Aurora Serverless v2 PostgreSQL-compatible cluster.
 - KMS keys for Aurora and appliance image uploads.
 - S3 bucket for appliance image uploads with SSE-KMS, public access block, and lifecycle cleanup.
@@ -78,5 +78,12 @@ Use `terraform -chdir=infra/shared output -raw ecs_cluster_name`,
 `terraform -chdir=infra/shared output -json private_subnet_ids`,
 `terraform -chdir=backend/infra output -raw migration_task_definition_arn`, and
 `terraform -chdir=backend/infra output -raw ecs_tasks_security_group_id` to fill
-the placeholders. Only after the task exits successfully should the API service
-be updated and remote smoke tests run.
+the placeholders. The task command is:
+
+```bash
+alembic upgrade head && python -m app.seed
+```
+
+Every deployment applies migrations and verifies the representative technician
+data required by the take-home. Only after the task exits successfully should
+the API service be updated and remote smoke tests run.

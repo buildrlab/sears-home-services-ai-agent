@@ -24,6 +24,7 @@ def test_diagnostic_workflow_remembers_appliance_and_symptoms(db_session: Sessio
 
     assert persisted.appliance_type == "refrigerator"
     assert persisted.symptoms == ["not cooling", "leaking"]
+    assert "Safe checks:" in result.assistant_message
     assert "What ZIP code" in result.assistant_message
     assert "Which appliance" not in result.assistant_message
 
@@ -54,6 +55,7 @@ def test_diagnostic_workflow_escalates_to_scheduling_when_unresolved(
 
     assert persisted.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value
     assert persisted.recommended_action == "schedule_technician"
+    assert "Do you prefer a morning or afternoon appointment" in result.assistant_message
     assert result.tool_calls[0].name == "find_technician_matches"
 
 

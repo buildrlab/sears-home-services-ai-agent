@@ -60,7 +60,9 @@ class DeterministicDiagnosticProvider:
             return AgentTurnResult(
                 assistant_message=(
                     f"I have the {session.appliance_type} issue noted as "
-                    f"{', '.join(session.symptoms)}. What ZIP code is the appliance in?"
+                    f"{', '.join(session.symptoms)}. "
+                    f"{troubleshooting_guidance(session.appliance_type, session.symptoms)} "
+                    "What ZIP code is the appliance in?"
                 ),
                 status=DiagnosticSessionStatus.ACTIVE,
             )
@@ -98,8 +100,9 @@ class DeterministicDiagnosticProvider:
         return AgentTurnResult(
             assistant_message=(
                 f"I have your {session.appliance_type} issue in ZIP {session.zip_code}. "
-                "This needs technician scheduling, so I am checking available Sears Home "
-                "Services technicians now."
+                f"{troubleshooting_guidance(session.appliance_type, session.symptoms)} "
+                "If the issue continues, I can schedule a Sears Home Services technician. "
+                "Do you prefer a morning or afternoon appointment?"
             ),
             status=DiagnosticSessionStatus.READY_TO_SCHEDULE,
             recommended_action="schedule_technician",
@@ -159,8 +162,9 @@ def _instructions() -> str:
         "symptoms, ZIP code, and email when an image upload link is needed. Do not repeat "
         "questions for fields already known. Refuse "
         "unsafe troubleshooting involving gas, smoke, fire, sparking, electrical shock, or "
-        "carbon monoxide, and steer to emergency help plus technician scheduling. Use tools "
-        "only when their schemas are satisfied."
+        "carbon monoxide, and steer to emergency help plus technician scheduling. Provide "
+        "safe, basic troubleshooting steps before scheduling when the issue is not an "
+        "emergency. Use tools only when their schemas are satisfied."
     )
 
 
@@ -200,3 +204,55 @@ def _read_attr(item: Any, name: str) -> Any:
     if isinstance(item, dict):
         return item.get(name)
     return getattr(item, name, None)
+
+
+def troubleshooting_guidance(appliance_type: str | None, symptoms: list[str] | None) -> str:
+    appliance = (appliance_type or "appliance").lower()
+    issue_set = set(symptoms or [])
+    steps = _specific_troubleshooting_steps(appliance, issue_set)
+    if not steps:
+        steps = (
+            "confirm the appliance has power",
+            "check for obvious blocked vents, filters, or drains",
+            "avoid disassembly or electrical work",
+        )
+    return "Safe checks: " + "; ".join(steps[:3]) + "."
+
+
+def _specific_troubleshooting_steps(appliance: str, symptoms: set[str]) -> tuple[str, ...]:
+    if appliance == "refrigerator":
+        if {"not cooling", "leaking"} & symptoms:
+            return (
+                "make sure the doors seal fully",
+                "confirm vents inside the refrigerator are not blocked",
+                "move food away from the drain area and note where water appears",
+            )
+    if appliance == "washer":
+        if {"not starting", "not draining", "leaking"} & symptoms:
+            return (
+                "confirm the lid or door is fully latched",
+                "check that the water supply valves are open",
+                "look for kinks in the drain hose without moving heavy equipment",
+            )
+    if appliance == "dryer":
+        if {"not heating", "not starting", "making noise"} & symptoms:
+            return (
+                "clean the lint screen",
+                "confirm the selected cycle uses heat",
+                "stop using the dryer if there is burning smell or sparking",
+            )
+    if appliance == "dishwasher":
+        if {"not draining", "leaking", "making noise"} & symptoms:
+            return (
+                "remove visible food debris from the filter area",
+                "check that the door gasket is seated",
+                "avoid reaching into moving parts",
+            )
+    if appliance == "oven":
+        if {"not heating", "not starting"} & symptoms:
+            return (
+                "confirm the control is set to the correct mode",
+                "check whether the display shows an error code",
+                "stop using the oven if you smell gas or see sparking",
+            )
+    return ()

@@ -116,7 +116,14 @@ class FakeReviewerClient:
         raise AssertionError(f"Unexpected POST {path}")
 
     def post_form(self, path: str, payload: dict[str, str]) -> str:
-        if path in {"/twilio/voice/incoming", "/twilio/voice/gather"}:
+        if path == "/twilio/voice/incoming":
+            return "<Response><Gather></Gather></Response>"
+        if path == "/twilio/voice/gather":
+            speech = payload.get("SpeechResult", "")
+            if "soonest" in speech:
+                return "<Response><Gather>I found an appointment.</Gather></Response>"
+            if "Yes" in speech:
+                return "<Response><Gather>Your appointment is confirmed.</Gather></Response>"
             return "<Response><Gather></Gather></Response>"
         raise AssertionError(f"Unexpected form POST {path}")
 
@@ -199,7 +206,7 @@ class ReviewerLocalSmokeTests(unittest.TestCase):
         check_names = {check.name for check in checks}
         self.assertIn("tier1_diagnostic_flow", check_names)
         self.assertIn("tier2_appointment_booked", check_names)
-        self.assertIn("twilio_gather_fallback", check_names)
+        self.assertIn("twilio_voice_booking", check_names)
         self.assertIn("tier3_image_analysis", check_names)
         self.assertIn("frontend_shell", check_names)
         self.assertTrue(client.object_uploaded)

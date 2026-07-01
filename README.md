@@ -202,8 +202,10 @@ AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py \
 
 The configured Twilio test number is `+17373559397`. The deployed reviewer
 voice path uses Twilio Gather unless ConversationRelay is enabled in the Twilio
-account. SES is currently validated with recipients under the verified
-`shs.buildrlab.com` domain.
+account. The voice flow provides safe troubleshooting, collects availability,
+proposes a technician slot, books after caller confirmation, and reads back the
+confirmation code. SES send is implemented and verified; the AWS account is in
+sandbox mode with a 200 emails/day quota and production access requested.
 
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.

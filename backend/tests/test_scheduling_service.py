@@ -57,6 +57,28 @@ def test_scheduling_service_creates_hold_and_books_confirmation(db_session) -> N
     assert persisted.technician.name == "Avery Johnson"
 
 
+def test_scheduling_service_creates_first_available_hold_from_preference(db_session) -> None:
+    _seed(db_session)
+    service = SchedulingService(db_session)
+
+    hold = service.create_first_available_hold(
+        zip_code="75201",
+        appliance_type="refrigerator",
+        customer=CustomerCreate(
+            full_name="Voice Caller",
+            email=None,
+            phone="+15551234567",
+        ),
+        issue_summary="Voice diagnostic for refrigerator: not cooling.",
+        availability_preference="Monday morning works for me.",
+        now=datetime(2026, 7, 1, 12, 0, tzinfo=UTC),
+    )
+
+    assert hold.status == AppointmentStatus.HELD.value
+    assert hold.technician.name == "Avery Johnson"
+    assert hold.scheduled_start == datetime(2026, 7, 6, 8, 0, tzinfo=UTC)
+
+
 def test_scheduling_service_rejects_unsupported_zip(db_session) -> None:
     _seed(db_session)
     service = SchedulingService(db_session)
