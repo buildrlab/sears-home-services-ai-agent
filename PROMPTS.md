@@ -327,6 +327,43 @@ awake if overnight Codex work should continue.
 - `dev` branch protection is not configured.
 - AWS deploy workflow has not yet run against the AWS account.
 
+## 2026-07-01 Phase 8 PR Merge and Live-Gate Check
+
+### Prompt
+
+The user previously instructed that pushed branches should have PRs opened and
+merged into `dev`, and asked Codex to keep working until all phases are complete.
+
+### Response
+
+The assistant committed the Phase 8 deploy workflow slice on
+`codex/phase-8-cicd-remote-validation`, pushed it, opened PR #12 into `dev`,
+waited for Scripts CI, Security CI, and Terraform CI to pass, merged the PR, and
+fast-forwarded local `dev` to the merge commit. The assistant then checked
+remaining live gates and found no repository secrets, no repository variables,
+no GitHub environments, no `dev` branch protection, invalid local `gh` auth, and
+no local AWS credentials.
+
+### Verification
+
+- PR #12 merged into `dev` at `9fcde662dd703022f9afe81884013ebbb120ab8b`.
+- `git status --short --branch` showed local `dev` aligned with `origin/dev`.
+- `gh secret list` returned no repository secrets.
+- `gh variable list` returned no repository variables.
+- GitHub Environments API returned no configured environments.
+- `gh auth status` reported the local GitHub CLI token is invalid.
+- `aws sts get-caller-identity` failed with `NoCredentials`.
+
+### Remaining Gates
+
+- Configure GitHub environment `prod`.
+- Configure GitHub deployment variables.
+- Configure `AWS_DEVOPS_ROLE_ARN`, `OPENAI_API_KEY`, and `TWILIO_AUTH_TOKEN`
+  as GitHub secrets, or ensure the OpenAI/Twilio AWS Secrets Manager values
+  already have current versions.
+- Refresh local `gh` and AWS auth if Codex should run deployment commands.
+- Run `.github/workflows/aws-deploy.yml` against AWS.
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

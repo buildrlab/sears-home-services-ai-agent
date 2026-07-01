@@ -76,7 +76,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
-| Phase 8: CI/CD and Remote Validation | In Progress | AWS deploy workflow, remote smoke script, and local script coverage are being implemented. Latest GitHub Action pins were reverified on 2026-07-01. | Finish local validation, push/PR/merge, then configure GitHub environment secrets/variables and run the AWS deploy workflow. |
+| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, and branch protection recommendations are merged into `dev` through PR #12. Live AWS deployment is blocked on GitHub deployment configuration and AWS credentials. | Configure GitHub environment secrets/variables, refresh local GitHub/AWS auth if Codex should run the deploy, then run the AWS deploy workflow. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
@@ -611,6 +611,8 @@ Current GitHub configuration check:
 - 2026-07-01: `gh variable list` returned no repository variables.
 - 2026-07-01: GitHub Environments API returned no configured environments.
 - 2026-07-01: `dev` branch protection API returned `Branch not protected`.
+- 2026-07-01: `gh auth status` reported the local GitHub CLI token for `damogallagher` is invalid; PR #12 was created and merged through the GitHub connector instead.
+- 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex cannot run Terraform deploys against AWS until AWS credentials or SSO login are available.
 
 Latest local verification:
 
@@ -623,6 +625,7 @@ Latest local verification:
 - 2026-07-01: `scripts/terraform/validate.sh` passed for all Terraform stacks after allowing provider-registry network access.
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
 - 2026-07-01: `git diff --check` passed.
+- 2026-07-01: PR #12 (`codex/phase-8-cicd-remote-validation` into `dev`) passed Scripts CI, Security CI, and Terraform CI, then merged at `9fcde662dd703022f9afe81884013ebbb120ab8b`.
 
 Exit criteria:
 
