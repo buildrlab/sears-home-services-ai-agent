@@ -130,20 +130,32 @@ class OpenAIResponsesProvider:
             reasoning={"effort": self._settings.openai_reasoning_effort},
             text={"verbosity": self._settings.openai_verbosity},
         )
-        tool_calls = list(_extract_tool_calls(getattr(response, "output", [])))
-        assistant_message = getattr(response, "output_text", "") or (
-            "I can help diagnose the issue and schedule service."
+        fallback_result = DeterministicDiagnosticProvider().generate(context)
+        response_tool_calls = list(_extract_tool_calls(getattr(response, "output", [])))
+        tool_calls = response_tool_calls or fallback_result.tool_calls
+        assistant_message = (getattr(response, "output_text", "") or "").strip()
+        if not assistant_message:
+            assistant_message = fallback_result.assistant_message
+
+        has_scheduling_tool = any(
+            call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls
         )
+        should_use_fallback_state = not response_tool_calls
         return AgentTurnResult(
             assistant_message=assistant_message,
             status=(
                 DiagnosticSessionStatus.READY_TO_SCHEDULE
-                if any(call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls)
+                if has_scheduling_tool
+                else fallback_result.status
+                if should_use_fallback_state
                 else DiagnosticSessionStatus.ACTIVE
             ),
+            safety_blocked=fallback_result.safety_blocked if should_use_fallback_state else False,
             recommended_action=(
                 "schedule_technician"
-                if any(call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls)
+                if has_scheduling_tool
+                else fallback_result.recommended_action
+                if should_use_fallback_state
                 else None
             ),
             tool_calls=tool_calls,

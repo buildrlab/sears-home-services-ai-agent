@@ -73,8 +73,7 @@ services:
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules
     command: >
-      sh -c "corepack enable &&
-      corepack prepare pnpm@11.9.0 --activate &&
+      sh -c "npm install -g pnpm@11.9.0 &&
       pnpm install --frozen-lockfile &&
       pnpm dev --host 0.0.0.0"
 
