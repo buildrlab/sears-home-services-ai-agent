@@ -22,6 +22,7 @@ services:
       AWS_SECRET_ACCESS_KEY: minioadmin
       S3_UPLOAD_BUCKET: shs-ai-agent-uploads-local
       S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
       S3_PRESIGN_EXPIRES_SECONDS: "900"
       UPLOAD_LINK_BASE_URL: http://127.0.0.1:5173/uploads
       UPLOAD_TOKEN_TTL_MINUTES: "60"

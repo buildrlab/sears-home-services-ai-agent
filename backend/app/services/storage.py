@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.parse import urlparse, urlunparse
 
 from app.config import Settings
 
@@ -61,7 +62,7 @@ class S3UploadStorageClient:
             ExpiresIn=expires_seconds,
         )
         return PresignedPost(
-            url=str(response["url"]),
+            url=_rewrite_public_url(str(response["url"]), self._settings.s3_public_endpoint_url),
             fields={str(key): str(value) for key, value in response["fields"].items()},
         )
 
@@ -72,17 +73,26 @@ class S3UploadStorageClient:
         key: str,
         expires_seconds: int,
     ) -> str:
-        return str(
+        raw = str(
             self._client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": bucket, "Key": key},
                 ExpiresIn=expires_seconds,
             )
         )
+        return _rewrite_public_url(raw, self._settings.s3_public_endpoint_url)
 
 
 def build_upload_storage_client(settings: Settings) -> UploadStorageClient:
     return S3UploadStorageClient(settings)
+
+
+def _rewrite_public_url(url: str, public_endpoint_url: str | None) -> str:
+    if not public_endpoint_url:
+        return url
+    public = urlparse(public_endpoint_url)
+    parsed = urlparse(url)
+    return urlunparse(parsed._replace(scheme=public.scheme, netloc=public.netloc))
 
 
 def _s3_client(settings: Settings):

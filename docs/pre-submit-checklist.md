@@ -5,23 +5,28 @@ submission email. Keep secrets out of screenshots, logs, and the prompt log.
 
 ## 1. Repository and CI
 
-- [ ] Confirm the final work is merged into `dev`.
-- [ ] Confirm the local checkout is clean:
+- [x] Confirm the final work is merged into `dev`.
+- [x] Confirm the local checkout is clean:
 
 ```bash
 git status --short --branch
 ```
 
-- [ ] Confirm the latest `dev` push workflows are green in GitHub Actions:
+- [x] Confirm the latest `dev` push workflows are green in GitHub Actions:
   - Backend CI
   - Frontend CI
   - Security CI
   - Scripts CI
   - Terraform CI
-- [ ] Confirm Dependabot is enabled and targets `dev`.
-- [ ] Confirm branch protection still requires pull requests and status checks.
+- [x] Confirm Dependabot is enabled and targets `dev`.
+- [x] Confirm branch protection still requires pull requests and status checks.
 
 ## 2. Local Automated Checks
+
+- [x] Backend pytest coverage, backend Ruff, root script unit tests, and scripts/tests Ruff passed.
+- [x] Frontend lint, typecheck, unit tests, production build, and local Playwright passed.
+- [x] Backend and frontend dependency audits reported no known vulnerabilities.
+- [x] Workflow lint, Docker Compose config checks, Terraform validation, and diff whitespace check passed.
 
 Run these from the repository root unless noted.
 
