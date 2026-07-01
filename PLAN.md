@@ -617,7 +617,7 @@ Current GitHub configuration check:
 - 2026-07-01: `gh auth status` reported the local GitHub CLI token for `damogallagher` is invalid; PR #12 was created and merged through the GitHub connector instead.
 - 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex cannot run Terraform deploys against AWS until AWS credentials or SSO login are available.
 - 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
-- 2026-07-01: PRs #16 and #17 added dry-run/apply scripts for GitHub environment configuration and branch protection. `deploy_preflight.py` now validates environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
+- 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
 
@@ -625,12 +625,16 @@ Latest local verification:
 - 2026-07-01: `actionlint` passed for all workflows, including `.github/workflows/aws-deploy.yml`.
 - 2026-07-01: Ruby YAML parsing passed for all workflow files.
 - 2026-07-01: `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests` passed.
-- 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 21 tests.
+- 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 40 tests after the GitHub deploy/branch-protection/preflight script additions.
 - 2026-07-01: `backend/.venv/bin/ruff check scripts tests` passed.
 - 2026-07-01: `scripts/terraform/validate.sh` passed for all Terraform stacks after allowing provider-registry network access.
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
 - 2026-07-01: `git diff --check` passed.
 - 2026-07-01: PR #12 (`codex/phase-8-cicd-remote-validation` into `dev`) passed Scripts CI, Security CI, and Terraform CI, then merged at `9fcde662dd703022f9afe81884013ebbb120ab8b`.
+- 2026-07-01: PR #16 (`codex/github-deploy-config-script` into `dev`) passed Scripts CI and Security CI, then merged at `3ea463eb3a7bf3663a5bc6b452c5e471f8bf94f9`.
+- 2026-07-01: PR #17 (`codex/github-branch-protection-script` into `dev`) passed Scripts CI and Security CI, then merged at `81262d385062b072515a985664d8279768e526eb`.
+- 2026-07-01: PR #18 (`codex/deploy-preflight-github-policy` into `dev`) passed Scripts CI and Security CI, then merged at `0a7f080f17044686c93472d7fbcb81ba998f328c`.
+- 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero on the merged `dev` branch and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
 - 2026-07-01: Deploy preflight unit tests passed as part of the root script test suite.
 
 Exit criteria:
