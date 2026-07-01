@@ -2339,3 +2339,59 @@ The assistant fixed the Twilio Gather ZIP loop:
   `backend/` with 26 tests.
 - `.venv/bin/python -m ruff check .` passed from `backend/`.
 - `.venv/bin/python -m pytest` passed from `backend/` with 127 tests.
+
+## 2026-07-01 SES Recipient and Spoken Email Fix
+
+### Prompt
+
+The user reported that an upload-link email did not arrive. After the assistant
+found that the live diagnostic session created an upload link but recorded
+`email_sent=false` with `ClientError`, the user instructed that calls can come
+from anyone and the system should allow email to be sent to any address once SES
+production access is granted.
+
+### Response
+
+The assistant investigated live AWS with the `sears` SSO profile:
+
+- SES account status showed `ProductionAccessEnabled=false`; the production
+  access request had been denied, so sandbox delivery still only supports
+  verified recipients.
+- SES identities showed `damien.gallagher@gmail.com`, `damien@buildrlab.com`,
+  and `shs.buildrlab.com` verified; `r@gmail.com` was not verified.
+- CloudWatch for the API task showed the failed send was an
+  `AccessDeniedException` for `ses:SendEmail` on identity `r@gmail.com`.
+- The live diagnostic session showed the assistant displayed
+  `damien.gallagher@gmail.com`, but the tool call used `r@gmail.com`; the local
+  deterministic parser reproduced this from the spaced voice transcript.
+
+The assistant then made two fixes:
+
+- Backend Terraform now allows the API task to call `ses:SendEmail` and
+  `ses:SendRawEmail` on `Resource="*"` so arbitrary customer recipients are not
+  blocked by the task role after SES production access is granted.
+- Deterministic spoken-email extraction now handles spaced ASR transcripts such
+  as `D a m i e n. Dot g a l. L a g h, e r at gmail.com.` as
+  `damien.gallagher@gmail.com`.
+
+### Files Changed
+
+- `backend/infra/main.tf`
+- `backend/app/agent/extraction.py`
+- `backend/tests/test_extraction.py`
+- `tests/test_terraform_static_analysis.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_extraction.py` passed from `backend/`
+  with 3 tests.
+- `.venv/bin/python -m pytest tests/test_extraction.py tests/test_diagnostics_service.py tests/test_twilio_voice.py`
+  passed from `backend/` with 36 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 128 tests.
+- `backend/.venv/bin/python -m pytest tests/test_terraform_static_analysis.py`
+  passed from the repo root with 3 tests.
+- `terraform fmt -check backend/infra/main.tf` passed.
+- `scripts/terraform/validate.sh` passed outside the sandbox after provider
+  registry access was available.

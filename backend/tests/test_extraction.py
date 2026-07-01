@@ -14,3 +14,14 @@ def test_extract_email_accepts_spoken_address() -> None:
         extract_email("Send it to damien plus sears at buildr lab dot com.")
         == "damien+sears@buildrlab.com"
     )
+
+
+def test_extract_email_accepts_spelled_voice_address() -> None:
+    assert (
+        extract_email("D a m i e n. Dot g a l. L a g h, e r at gmail.com.")
+        == "damien.gallagher@gmail.com"
+    )
+    assert (
+        extract_email("D a m i e n dot g a l l a g h e r at gmail dot com.")
+        == "damien.gallagher@gmail.com"
+    )

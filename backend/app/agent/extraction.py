@@ -110,14 +110,77 @@ def extract_spoken_zip_code(text: str) -> str | None:
 
 
 def extract_spoken_email(text: str) -> str | None:
-    normalized = f" {text.lower()} "
+    normalized = _replace_spoken_at(f" {text.lower()} ")
+    if "@" not in normalized:
+        return None
+    before_at, after_at = normalized.rsplit("@", 1)
+    local_part = _extract_spoken_email_local_part(before_at)
+    if local_part is None:
+        return None
+    domain_text = _normalize_spoken_email_domain(after_at)
+    domain_match = re.match(r"[a-z0-9.-]+\.[a-z]{2,}", domain_text)
+    if domain_match is None:
+        return None
+    candidate = f"{local_part}@{domain_match.group(0)}"
+    if EMAIL_PATTERN.fullmatch(candidate):
+        return candidate
+    return None
+
+
+def _replace_spoken_at(text: str) -> str:
+    normalized = text
+    for spoken in (" at sign ", " at symbol ", " at "):
+        normalized = normalized.replace(spoken, " @ ")
+    return normalized
+
+
+def _extract_spoken_email_local_part(text: str) -> str | None:
+    normalized = _replace_spoken_email_symbols(text)
+    compacted = re.sub(r"\s*([._%+-])\s*", r"\1", normalized)
+    local_match = re.search(r"[a-z0-9._%+-]+$", compacted.strip())
+    if local_match is not None and len(local_match.group(0).strip("._%+-")) >= 3:
+        return local_match.group(0)
+    return _extract_spelled_email_local_part(text)
+
+
+def _extract_spelled_email_local_part(text: str) -> str | None:
+    dot_marker = " SPOKEN_DOT_MARKER "
+    normalized = _replace_spoken_email_symbols(text, dot_marker=dot_marker)
+    normalized = re.sub(r"[.,;:]+", " ", normalized)
+    symbols = re.findall(r"SPOKEN_DOT_MARKER|[a-z0-9]+|[_%+-]", normalized)
+    parts: list[str] = []
+    has_alnum = False
+    for symbol in reversed(symbols):
+        if symbol == "SPOKEN_DOT_MARKER":
+            parts.append(".")
+            continue
+        if symbol in {"_", "%", "+", "-"}:
+            parts.append(symbol)
+            continue
+        if len(symbol) == 1 and symbol.isalnum():
+            parts.append(symbol)
+            has_alnum = True
+            continue
+        break
+    if not has_alnum:
+        return None
+    local_part = re.sub(r"\.{2,}", ".", "".join(reversed(parts))).strip("._%+-")
+    if len(local_part) < 3:
+        return None
+    return local_part
+
+
+def _normalize_spoken_email_domain(text: str) -> str:
+    normalized = _replace_spoken_email_symbols(text)
+    return re.sub(r"\s+", "", normalized).strip(".,;:")
+
+
+def _replace_spoken_email_symbols(text: str, *, dot_marker: str = " . ") -> str:
+    normalized = text
     replacements = {
-        " at sign ": " @ ",
-        " at symbol ": " @ ",
-        " at ": " @ ",
-        " dot ": " . ",
-        " period ": " . ",
-        " point ": " . ",
+        " dot ": dot_marker,
+        " period ": dot_marker,
+        " point ": dot_marker,
         " underscore ": " _ ",
         " under score ": " _ ",
         " dash ": " - ",
@@ -126,18 +189,4 @@ def extract_spoken_email(text: str) -> str | None:
     }
     for spoken, symbol in replacements.items():
         normalized = normalized.replace(spoken, symbol)
-    normalized = re.sub(r"\s*([@._%+-])\s*", r"\1", normalized)
-    if "@" not in normalized:
-        return None
-    before_at, after_at = normalized.rsplit("@", 1)
-    local_match = re.search(r"[a-z0-9._%+-]+$", before_at.strip())
-    if local_match is None:
-        return None
-    domain_text = re.sub(r"\s+", "", after_at).strip(".,;:")
-    domain_match = re.match(r"[a-z0-9.-]+\.[a-z]{2,}", domain_text)
-    if domain_match is None:
-        return None
-    candidate = f"{local_match.group(0)}@{domain_match.group(0)}"
-    if EMAIL_PATTERN.fullmatch(candidate):
-        return candidate
-    return None
+    return normalized
