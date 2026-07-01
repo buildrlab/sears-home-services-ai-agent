@@ -75,8 +75,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 4: Twilio Voice | In Progress | Repo implementation is complete locally: signed webhook validation, Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, and runbook updates are implemented. Live Twilio tunnel call-through and ConversationRelay account enablement remain the live-completion gates. | Run backend through ngrok/cloudflared with real Twilio auth token, verify a live Gather fallback call, and confirm ConversationRelay enablement or keep Gather as fallback. |
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
-| Phase 7: Infrastructure | In Progress | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, and local validation are implemented. | Push Phase 7 PR, verify GitHub Actions, and merge to `dev` if checks pass. |
-| Phase 8: CI/CD and Remote Validation | Pending | Not started. | Run GitHub Actions deploys and remote tests against AWS. |
+| Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
+| Phase 8: CI/CD and Remote Validation | Next | Not started. | Add deploy workflows, configure environment inputs/secrets, run Terraform deploys, and execute remote AWS/Twilio/SES/upload validation. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
@@ -551,7 +551,8 @@ Implementation status:
 - [x] Backend tests pass after AWS database-field and worker changes.
 - [x] Backend Docker build passes locally.
 - [x] Frontend lint, typecheck, unit tests, build, dependency audit, and Playwright tests pass locally with Node `26.4.0` and pnpm `11.9.0`.
-- [ ] GitHub Actions checks pass on the Phase 7 PR.
+- [x] GitHub Actions checks pass on the Phase 7 PR.
+- [x] Phase 7 PR is merged to `dev`.
 
 Latest verification:
 
@@ -560,6 +561,7 @@ Latest verification:
 - 2026-07-01: `docker run --rm -v "$PWD:/repo" aquasec/trivy:0.72.0 fs --scanners secret --skip-dirs /repo/backend/.venv --skip-dirs /repo/frontend/node_modules --exit-code 1 /repo` passed with no secrets found.
 - 2026-07-01: Backend `pytest` passed with 60 tests, Ruff passed, `pip-audit` reported no known vulnerabilities, and `docker build -t shs-ai-agent-backend:phase7 .` passed.
 - 2026-07-01: Frontend `corepack pnpm lint`, `typecheck`, `test`, `build`, `audit --audit-level=moderate`, and `PW_PORT=5174 corepack pnpm test:e2e` passed with Node `26.4.0` and pnpm `11.9.0`.
+- 2026-07-01: PR #9 (`codex/phase-7-infrastructure` into `dev`) passed backend, frontend, scripts, secret scan, dependency audit, Terraform validation for all stacks, and Terraform security checks. PR #9 merged into `dev` at `6b00937628dcc98d382ab65f4410e59d52a70487`.
 
 ## Phase 8: CI/CD and Remote Validation
 
