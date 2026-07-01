@@ -76,7 +76,7 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
-| Phase 8: CI/CD and Remote Validation | Next | Not started. | Add deploy workflows, configure environment inputs/secrets, run Terraform deploys, and execute remote AWS/Twilio/SES/upload validation. |
+| Phase 8: CI/CD and Remote Validation | In Progress | AWS deploy workflow, remote smoke script, and local script coverage are being implemented. Latest GitHub Action pins were reverified on 2026-07-01. | Finish local validation, push/PR/merge, then configure GitHub environment secrets/variables and run the AWS deploy workflow. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
@@ -567,21 +567,62 @@ Latest verification:
 
 Deliverables:
 
-- GitHub Actions CI for backend.
-- GitHub Actions CI for frontend.
-- GitHub Actions Terraform plan/apply.
-- GitHub Actions security scans.
-- GitHub deployment environments.
-- Branch protection recommendations.
+- [x] GitHub Actions CI for backend.
+- [x] GitHub Actions CI for frontend.
+- [x] GitHub Actions Terraform validation.
+- [x] GitHub Actions security scans.
+- [x] Manual GitHub Actions AWS deploy workflow for Terraform plan/apply and artifact deployment.
+- [x] Latest GitHub Action pins reverified: `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`, `aws-actions/configure-aws-credentials@v6.2.1`, and `hashicorp/setup-terraform@v4.0.1`.
+- [x] Deployment workflow runs Python on ECS/Fargate, not Lambda.
+- [x] Deployment workflow runs Alembic as an explicit one-off Fargate task.
+- [x] Deployment workflow supports first-backend bootstrap with zero running tasks before the first ECR image exists.
+- [x] Deployment workflow verifies/populates OpenAI and Twilio Secrets Manager values before ECS task launch.
+- [x] Deployment workflow builds and uploads the React frontend to S3 and invalidates CloudFront.
+- [x] Remote smoke script checks API health, frontend shell, and upload route SPA fallback.
+- [ ] GitHub deployment environment variables/secrets configured.
+- [ ] AWS deploy workflow run in plan mode after shared state exists.
+- [ ] AWS deploy workflow run in apply mode.
+- [x] Branch protection recommendations documented.
+- [ ] Branch protection applied after required-check policy is approved.
 
 Remote validation:
 
-- Deploy dev environment.
-- Run backend smoke tests against AWS API.
-- Run Playwright against AWS frontend.
-- Place real Twilio call to deployed webhook.
-- Send SES upload email.
-- Upload image and verify analysis.
+- [ ] Deploy AWS environment through `.github/workflows/aws-deploy.yml`.
+- [ ] Run `scripts/aws/remote_smoke.py` against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
+- [ ] Run Playwright against AWS frontend.
+- [ ] Place real Twilio call to deployed webhook.
+- [ ] Send SES upload email.
+- [ ] Upload image and verify analysis.
+- [ ] Review CloudWatch logs, ALB target health, ECS deployments, Aurora connectivity, SQS DLQ, SES delivery, and frontend browser console.
+
+Required GitHub deployment configuration:
+
+- Secret `AWS_DEVOPS_ROLE_ARN`.
+- Optional-but-required-for-first-live-task secrets `OPENAI_API_KEY` and `TWILIO_AUTH_TOKEN`; the deploy workflow accepts existing AWS Secrets Manager values if these are already populated.
+- Variable `AWS_DEVOPS_ACCOUNT_ID`.
+- Variable `SHS_WORKLOAD_ACCOUNT_ID` with value `710045722740`.
+- Variable `SHS_DNS_ACCOUNT_ID` with value `202612164956`.
+- Variable `SHS_HOSTED_ZONE_ID` with value `Z05781442GINHB3A5IJXK` for the parent `buildrlab.com` hosted zone.
+- Variable `TF_STATE_BUCKET` with value `buildrlab-terraform-state`.
+
+Current GitHub configuration check:
+
+- 2026-07-01: `gh secret list` returned no repository secrets.
+- 2026-07-01: `gh variable list` returned no repository variables.
+- 2026-07-01: GitHub Environments API returned no configured environments.
+- 2026-07-01: `dev` branch protection API returned `Branch not protected`.
+
+Latest local verification:
+
+- 2026-07-01: GitHub API confirmed latest action releases for `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`, `aws-actions/configure-aws-credentials@v6.2.1`, and `hashicorp/setup-terraform@v4.0.1`.
+- 2026-07-01: `actionlint` passed for all workflows, including `.github/workflows/aws-deploy.yml`.
+- 2026-07-01: Ruby YAML parsing passed for all workflow files.
+- 2026-07-01: `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests` passed.
+- 2026-07-01: `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed with 21 tests.
+- 2026-07-01: `backend/.venv/bin/ruff check scripts tests` passed.
+- 2026-07-01: `scripts/terraform/validate.sh` passed for all Terraform stacks after allowing provider-registry network access.
+- 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
+- 2026-07-01: `git diff --check` passed.
 
 Exit criteria:
 

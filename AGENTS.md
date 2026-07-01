@@ -34,6 +34,7 @@ Use the latest stable, generally available version of every technology unless a 
 Current verified baseline as of 2026-07-01:
 
 - GitHub Actions: `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`.
+- Terraform GitHub Action: `hashicorp/setup-terraform@v4.0.1`.
 - Python: `python3.14` for backend containers and local tooling.
 - Backend Docker base image: `python:3.14-slim`.
 - PostgreSQL: PostgreSQL 18, using the newest Aurora PostgreSQL-compatible minor on AWS and PostgreSQL 18 locally.
@@ -126,6 +127,8 @@ AWS-facing phases must also include:
 - Keep `scripts/twilio/README.md` current as the script catalog.
 - Every Twilio script must support `--help`.
 - Any Twilio script that mutates external state must support `--dry-run`.
+- AWS verification scripts must live under `scripts/aws/`.
+- Keep `scripts/aws/README.md` current as the script catalog.
 - Scripts must read secrets from environment variables or explicit secret-manager integrations, never from committed files.
 - Scripts must not print auth tokens, API key secrets, or private credentials.
 - Prefer idempotent scripts that can be safely rerun.

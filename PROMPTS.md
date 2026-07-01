@@ -264,6 +264,69 @@ The assistant checked the current AWS Lambda runtime documentation and confirmed
 - `pyproject.toml`
 - `PROMPTS.md`
 
+## 2026-07-01 Phase 8 Fargate Deployment Workflow
+
+### Prompt
+
+The user asked whether Alembic on Lambda would create cold-start or operational
+concerns, then decided the Python layer should run on Fargate instead of Lambda.
+The user also asked whether anything else was needed from them before they log
+off for the night.
+
+### Response
+
+The assistant confirmed that the Python backend should run as ECS/Fargate
+services with Alembic migrations as an explicit one-off Fargate task, not as API
+startup work and not as Lambda request-path work. The assistant told the user no
+immediate decision was needed, except that the local machine/session must remain
+awake if overnight Codex work should continue.
+
+### Files Changed
+
+- `.github/workflows/aws-deploy.yml`
+- `.github/workflows/terraform-ci.yml`
+- `AGENTS.md`
+- `PLAN.md`
+- `README.md`
+- `docs/runbooks/aws-testing.md`
+- `docs/runbooks/github-branch-protection.md`
+- `scripts/aws/README.md`
+- `scripts/aws/remote_smoke.py`
+- `tests/test_aws_scripts.py`
+
+### Decisions
+
+- Deploy the Python backend to ECS/Fargate, not Lambda.
+- Run Alembic through a one-off Fargate task in the application VPC.
+- Keep the app deploy workflow manual through GitHub Actions `workflow_dispatch`.
+- Require S3 Terraform state to be bootstrapped before normal app deployment.
+- Verify/populate OpenAI and Twilio Secrets Manager values before ECS task launch.
+- Document branch protection recommendations, but do not apply them until the
+  required-check policy is approved.
+
+### Verification
+
+- Latest GitHub Action releases were checked through the GitHub API.
+- `actionlint` passed.
+- Ruby YAML parsing passed for all workflows.
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+  passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 21 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `scripts/terraform/validate.sh` passed for all stacks after provider-registry
+  network access was allowed.
+- Trivy `0.72.0` secret scan passed with no secrets found.
+- `git diff --check` passed.
+
+### Remaining Gates
+
+- GitHub deployment environment `prod` is not configured.
+- Repository secrets are not configured.
+- Repository variables are not configured.
+- `dev` branch protection is not configured.
+- AWS deploy workflow has not yet run against the AWS account.
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

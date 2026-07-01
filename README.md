@@ -34,6 +34,7 @@ backend/   Python FastAPI API, Alembic migrations, backend Terraform
 frontend/  React/Vite/TypeScript/Tailwind v4 app and frontend Terraform
 infra/     Bootstrap and shared AWS Terraform
 docs/adr/  Architecture decision records
+scripts/   Twilio automation, Terraform helpers, and AWS verification scripts
 ```
 
 ## Local Development
@@ -148,10 +149,25 @@ The Python backend runs on ECS/Fargate. Alembic migrations run through an
 explicit one-off Fargate task definition from `backend/infra`, not during API
 startup.
 
+GitHub Actions deployment workflow:
+
+```text
+.github/workflows/aws-deploy.yml
+```
+
+The workflow assumes the S3 Terraform state bucket already exists, then plans or
+applies `infra/shared`, `backend/infra`, and `frontend/infra`. First backend
+deploys must run with `bootstrap_backend=true` so ECR, Secrets Manager, Aurora,
+and task definitions exist before the first image is pushed. The workflow then
+pushes the backend image, verifies required runtime secrets, applies ECS service
+desired counts, runs the Alembic Fargate task, builds/uploads the frontend, and
+executes `scripts/aws/remote_smoke.py`.
+
 AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio call testing, SES upload-link testing, and image-analysis verification.
 
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.
+See [GitHub Branch Protection Runbook](docs/runbooks/github-branch-protection.md) for recommended merge gates.
 
 ## Twilio Access
 
