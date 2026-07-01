@@ -170,6 +170,7 @@ See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remot
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.
 See [GitHub Branch Protection Runbook](docs/runbooks/github-branch-protection.md) for recommended merge gates.
 See [Technical Design](docs/technical-design.md) and [Submission Hardening](docs/submission-hardening.md) for reviewer-facing architecture, security, cost, and known-limitations notes.
+See [GitHub Scripts](scripts/github/README.md) for deployment environment setup automation.
 
 ## Reviewer Smoke Test
 

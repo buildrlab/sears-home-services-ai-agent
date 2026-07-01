@@ -455,6 +455,42 @@ makes the current blocker output clearer.
 - `python3.14 scripts/aws/deploy_preflight.py --json` exited nonzero as expected
   and reported invalid local `gh` auth plus missing AWS credentials.
 
+## 2026-07-01 GitHub Deploy Configuration Script
+
+### Prompt
+
+The active goal still had live AWS deployment blocked on missing GitHub
+environment/secret/variable configuration and invalid local `gh` auth.
+
+### Response
+
+The assistant added a dry-run-capable GitHub deployment configuration script.
+The script can create/update the `prod` deployment environment, set required
+environment-scoped variables, and optionally set environment-scoped secrets from
+local environment variables after `gh auth login` succeeds. It uses `--apply`
+before mutating GitHub state and redacts secret values in planned output.
+
+### Files Changed
+
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/runbooks/aws-testing.md`
+- `scripts/github/README.md`
+- `scripts/github/configure_deploy.py`
+- `tests/test_github_scripts.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 34 tests.
+- `backend/.venv/bin/ruff check scripts tests`
+- `python3.14 scripts/github/configure_deploy.py --aws-devops-account-id 123456789012`
+- `env AWS_DEVOPS_ROLE_ARN=arn:dummy OPENAI_API_KEY=sk-dummy TWILIO_AUTH_TOKEN=twilio-dummy python3.14 scripts/github/configure_deploy.py --aws-devops-account-id 123456789012 --include-secrets`
+  proved secret values are rendered as `<stdin:redacted>`.
+- `git diff --check`
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt
