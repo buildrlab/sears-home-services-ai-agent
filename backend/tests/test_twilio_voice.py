@@ -96,6 +96,7 @@ def test_incoming_voice_accepts_signed_webhook_and_creates_call_session(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/xml"
     assert "<Gather" in response.text
+    assert "actionOnEmptyResult" in response.text
     call_session = db_session.scalars(select(CallSession)).one()
     assert call_session.call_sid == "CA123456789"
     assert call_session.from_number == "+15551234567"
@@ -205,7 +206,52 @@ def test_gather_response_runs_deterministic_diagnostic_turn(db_session: Session)
     ]
 
 
-def test_gather_response_prompts_to_repeat_blank_speech(db_session: Session) -> None:
+def test_gather_response_split_turn_collects_zip_without_reasking_known_fields(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CASPLITTURN")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+
+    first_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling and leaking."
+    }
+    first_response = client.post(
+        "/twilio/voice/gather",
+        data=first_params,
+        headers=_signed_headers("/twilio/voice/gather", first_params),
+    )
+
+    assert first_response.status_code == 200
+    assert "What ZIP code is the appliance in" in first_response.text
+    assert "Which appliance needs help" not in first_response.text
+    assert "What is happening with your refrigerator" not in first_response.text
+
+    second_params = incoming_params | {"SpeechResult": "The ZIP code is 75201."}
+    second_response = client.post(
+        "/twilio/voice/gather",
+        data=second_params,
+        headers=_signed_headers("/twilio/voice/gather", second_params),
+    )
+
+    assert second_response.status_code == 200
+    assert "Safe checks:" in second_response.text
+    assert "Do you prefer a morning or afternoon appointment" in second_response.text
+    assert "Which appliance needs help" not in second_response.text
+    assert "What is happening with your refrigerator" not in second_response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.appliance_type == "refrigerator"
+    assert call_session.diagnostic_session.symptoms == ["not cooling", "leaking"]
+    assert call_session.diagnostic_session.zip_code == "75201"
+    assert call_session.diagnostic_session.status == "ready_to_schedule"
+
+
+def test_gather_response_retries_blank_speech_before_hanging_up(db_session: Session) -> None:
     client = _client(db_session)
     incoming_params = _twilio_params(call_sid="CABLANK")
     client.post(
@@ -214,14 +260,37 @@ def test_gather_response_prompts_to_repeat_blank_speech(db_session: Session) -> 
         headers=_signed_headers("/twilio/voice/incoming", incoming_params),
     )
 
-    response = client.post(
+    first_response = client.post(
         "/twilio/voice/gather",
         data=incoming_params,
         headers=_signed_headers("/twilio/voice/gather", incoming_params),
     )
 
-    assert response.status_code == 200
-    assert "Please repeat that." in response.text
+    assert first_response.status_code == 200
+    assert "<Gather" in first_response.text
+    assert "I did not catch that" in first_response.text
+    assert "Please say the appliance and what is happening" in first_response.text
+
+    second_response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/gather", incoming_params),
+    )
+
+    assert second_response.status_code == 200
+    assert "<Gather" in second_response.text
+    assert "I did not catch that" in second_response.text
+
+    final_response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/gather", incoming_params),
+    )
+
+    assert final_response.status_code == 200
+    assert "<Gather" not in final_response.text
+    assert "<Hangup" in final_response.text
+    assert "I still could not hear a response" in final_response.text
 
 
 def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:
@@ -486,7 +555,8 @@ def test_conversation_relay_websocket_handles_invalid_blank_and_unknown_events(
         websocket.send_json({"type": "text", "text": ""})
         repeat_response = websocket.receive_json()
         response_text = repeat_response.get("token")
-        assert response_text == "Please repeat that."
+        assert "I did not catch that" in response_text
+        assert "Please say the appliance and what is happening" in response_text
 
         websocket.send_json({"type": "unsupported"})
         assert websocket.receive_json() == {

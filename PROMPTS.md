@@ -2201,3 +2201,40 @@ submission.
 ### Verification
 
 - `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 Twilio Gather Call Flow Retry Fix
+
+### Prompt
+
+The user reported that during a live Twilio test call, after saying
+"My refrigerator is not cooling and leaking," the agent repeatedly responded
+with "I can help diagnose and schedule a service" instead of advancing the
+flow. The user asked whether retries could be added and the flow improved.
+
+### Response
+
+The assistant improved the Twilio Gather fallback path:
+
+- OpenAI diagnostic responses now fall back to the deterministic state machine
+  when the Responses API returns no usable text or tool call.
+- Twilio Gather now posts back on empty speech and retries with state-aware
+  prompts instead of falling through to a one-shot call-back message.
+- Repeated silence receives two retry prompts, then a final hangup message.
+- Regression coverage was added for the exact split-turn refrigerator flow:
+  appliance and symptoms first, ZIP code second, no re-asking for known
+  appliance or symptoms, safe troubleshooting, and morning/afternoon scheduling
+  prompt.
+
+### Files Changed
+
+- `backend/app/agent/providers.py`
+- `backend/app/api/twilio_voice.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_openai_provider.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 117 tests.
