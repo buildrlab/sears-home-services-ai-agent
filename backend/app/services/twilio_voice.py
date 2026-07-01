@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
+from app.agent.extraction import extract_zip_code
 from app.agent.tools import AgentToolCall, ToolName
 from app.config import Settings
 from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
@@ -525,7 +526,12 @@ def read_twilio_speech(params: dict[str, str], call_session: CallSession) -> str
             return "Yes, book it."
 
     speech = (params.get("SpeechResult") or "").strip()
-    if not speech or not _speech_confidence_is_acceptable(params):
+    if not speech:
+        return ""
+    if not _speech_confidence_is_acceptable(params):
+        zip_code = _expected_zip_from_low_confidence_speech(speech, call_session)
+        if zip_code is not None:
+            return f"The ZIP code is {zip_code}."
         return ""
     return speech
 
@@ -542,6 +548,22 @@ def _speech_confidence_is_acceptable(payload: dict[str, object]) -> bool:
         return float(str(raw_confidence)) >= MIN_SPEECH_CONFIDENCE
     except ValueError:
         return True
+
+
+def _expected_zip_from_low_confidence_speech(
+    speech: str,
+    call_session: CallSession,
+) -> str | None:
+    diagnostic_session = call_session.diagnostic_session
+    if diagnostic_session is None:
+        return None
+    if (
+        diagnostic_session.zip_code
+        or not diagnostic_session.appliance_type
+        or not diagnostic_session.symptoms
+    ):
+        return None
+    return extract_zip_code(speech)
 
 
 def _empty_retry_prompt(diagnostic_session: DiagnosticSession | None) -> str:

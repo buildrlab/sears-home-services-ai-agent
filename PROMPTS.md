@@ -2294,3 +2294,48 @@ The assistant added production-grade voice-flow hardening:
 
 - `.venv/bin/python -m ruff check .` passed from `backend/`.
 - `.venv/bin/python -m pytest` passed from `backend/` with 126 tests.
+
+## 2026-07-01 Low-Confidence ZIP Gather Fix
+
+### Prompt
+
+The user reported that this live prompt loop was failing:
+
+- Agent greets professionally.
+- Say: "My refrigerator is not cooling and leaking."
+- Confirm the agent does not ask again for the appliance or symptoms.
+- Say: "The ZIP code is 75201."
+- Confirm the agent provides safe troubleshooting guidance.
+- Confirm the agent asks for morning or afternoon availability.
+- Confirm no unsafe repair instructions are given.
+
+The observed behavior was that the voice agent kept repeating "I have the
+refrigerator issue noted as not cooling and leaking, please say the five digit
+ZIP code" even after the caller provided a valid ZIP code.
+
+### Response
+
+The assistant fixed the Twilio Gather ZIP loop:
+
+- Low-confidence speech is still rejected for ambiguous utterances.
+- When the call state already has appliance and symptoms, is missing only ZIP,
+  and the low-confidence transcript contains a valid ZIP, the speech reader now
+  accepts just the normalized ZIP phrase.
+- This prevents a valid ZIP transcript such as "The ZIP code is 75201" from
+  being treated as empty and routed back to the repeated ZIP retry prompt.
+- Regression coverage was added for the exact split-turn flow with a
+  low-confidence ZIP transcript, while preserving the existing retry behavior
+  for unrelated low-confidence speech.
+
+### Files Changed
+
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_twilio_voice.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_twilio_voice.py` passed from
+  `backend/` with 26 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 127 tests.

@@ -354,6 +354,45 @@ def test_gather_response_accepts_keypad_zip_code_after_symptoms(
     assert call_session.diagnostic_session.zip_code == "75201"
 
 
+def test_gather_response_accepts_low_confidence_zip_when_zip_is_expected(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CALOWCONFZIP")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    first_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling and leaking."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=first_params,
+        headers=_signed_headers("/twilio/voice/gather", first_params),
+    )
+
+    zip_params = incoming_params | {
+        "SpeechResult": "The ZIP code is 75201.",
+        "Confidence": "0.12",
+    }
+    response = client.post(
+        "/twilio/voice/gather",
+        data=zip_params,
+        headers=_signed_headers("/twilio/voice/gather", zip_params),
+    )
+
+    assert response.status_code == 200
+    assert "Safe checks:" in response.text
+    assert "Do you prefer a morning or afternoon appointment" in response.text
+    assert "Please say the five digit ZIP code" not in response.text
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    assert call_session.diagnostic_session.zip_code == "75201"
+    assert call_session.diagnostic_session.status == "ready_to_schedule"
+
+
 def test_gather_response_safety_escalation_refuses_gas_repair_steps(
     db_session: Session,
 ) -> None:
