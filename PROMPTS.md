@@ -1571,3 +1571,46 @@ calling `terraform output`.
 - `actionlint .github/workflows/aws-deploy.yml` passed.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
+
+## 2026-07-01 Phase 8 Migration Task Output Refresh Fix
+
+### Prompt
+
+The user asked the assistant to keep progressing through live AWS deployment
+after the deploy output-capture fix merged to `dev`.
+
+### Response
+
+The assistant triggered AWS Deploy run `28507701783` from `dev` in `plan` mode
+after shared/backend bootstrap state existed. The plan run passed shared,
+backend, and frontend planning. The assistant then triggered AWS Deploy run
+`28507811871` from `dev` in `apply` mode with `bootstrap_backend=false`.
+
+Run `28507811871` passed shared apply, backend planning, backend output capture,
+workload-role assumption, runtime secret publication, backend image build/push,
+and backend Terraform apply. It failed at `Run Alembic migration task` because
+the migration task step used task definition revision `:1` captured before
+backend apply. Backend apply registered revision `:2` and made revision `:1`
+inactive, so ECS rejected `run-task` with `TaskDefinition is inactive`.
+
+The assistant patched `.github/workflows/aws-deploy.yml` to recapture backend
+deployment outputs after final backend apply and to use those fresh outputs for
+the Alembic migration task. The initial backend output capture still supports
+Secrets Manager and ECR before the image is built, while migration now uses the
+post-apply ECS task definition revision.
+
+### Files Changed
+
+- `.github/workflows/aws-deploy.yml`
+- `tests/test_aws_deploy_workflow.py`
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 57 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `actionlint .github/workflows/aws-deploy.yml` passed.
+- Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
+- `git diff --check` passed.

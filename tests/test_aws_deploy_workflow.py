@@ -53,9 +53,38 @@ class AwsDeployWorkflowTests(unittest.TestCase):
             "ECR_REPOSITORY_URL: ${{ steps.backend.outputs.ecr_repository_url }}",
             workflow,
         )
-        self.assertIn(
+        self.assertNotIn(
             "MIGRATION_TASK_DEFINITION_ARN: "
             "${{ steps.backend.outputs.migration_task_definition_arn }}",
+            workflow,
+        )
+        self.assertNotIn(
+            'echo "migration_task_definition_arn=$(jq -r '
+            "'.migration_task_definition_arn.value' <<< \"$backend_outputs\")",
+            workflow,
+        )
+        self.assertNotIn("has(\"migration_task_definition_arn\") and", workflow)
+
+    def test_migration_outputs_are_recaptured_after_backend_apply(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+
+        apply_index = workflow.index("- name: Terraform backend apply")
+        capture_index = workflow.index("- name: Capture backend deployment outputs")
+        migration_index = workflow.index("- name: Run Alembic migration task")
+        self.assertLess(apply_index, capture_index)
+        self.assertLess(capture_index, migration_index)
+        self.assertIn(
+            'backend_deploy_outputs="$(terraform -chdir=backend/infra output -json)"',
+            workflow,
+        )
+        self.assertIn(
+            "ECS_TASKS_SECURITY_GROUP_ID: "
+            "${{ steps.backend_deploy.outputs.ecs_tasks_security_group_id }}",
+            workflow,
+        )
+        self.assertIn(
+            "MIGRATION_TASK_DEFINITION_ARN: "
+            "${{ steps.backend_deploy.outputs.migration_task_definition_arn }}",
             workflow,
         )
         self.assertNotIn("terraform -chdir=backend/infra output -raw", workflow)
