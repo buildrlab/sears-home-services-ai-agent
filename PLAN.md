@@ -70,9 +70,9 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 0: Repository and Governance Foundation | Complete | Repo, docs, ADRs, CI scaffolding, Dependabot, prompt log, local/AWS runbooks are in place. | Keep docs current as implementation changes commands or workflows. |
 | Phase 0.5: Twilio Access and Provisioning | Complete | Script-first Twilio automation, docs, CI, and local tests are implemented. Live Twilio credential verification passed, a selected phone number is available in the account, `setup.py` created the TwiML App and attached the number, `verify.py` confirmed webhook URLs plus phone routing, Gather fallback is the explicit Phase 0.5 live-call path, a real inbound call reached the smoke webhook, and the user reported Twilio was restored after the smoke test. | Keep ConversationRelay addendum/enablement as a Phase 4 gate. |
 | Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as later phases expand the schema and API surface. |
-| Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for Phase 3. |
-| Phase 3: Diagnostic Agent | Next | Not started. | Implement OpenAI-backed diagnostic workflow with deterministic test mode. |
-| Phase 4: Twilio Voice | Pending | Not started. | Implement ConversationRelay and Gather fallback once access is confirmed. |
+| Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for later voice/frontend flows. |
+| Phase 3: Diagnostic Agent | Complete | Diagnostic session/event schema, deterministic agent workflow, appliance/symptom/ZIP extraction, safety refusal path, tool schemas, OpenAI Responses provider abstraction, API endpoints, tests, local API run, and PostgreSQL 18 migration/API verification are implemented. | Use diagnostic service from Phase 4 Twilio voice routes. |
+| Phase 4: Twilio Voice | Next | Not started. | Implement ConversationRelay and Gather fallback against the diagnostic service. |
 | Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
 | Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
 | Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
@@ -327,6 +327,28 @@ Exit criteria:
 
 - Agent can run deterministic scripted calls locally.
 - OpenAI path is covered by contract tests/mocks.
+
+Implementation status:
+
+- [x] Diagnostic session and diagnostic event schema added with Alembic migration `0003_diagnostic_schema`.
+- [x] Deterministic local provider extracts appliance type, symptom memory, and ZIP code without an OpenAI key.
+- [x] Safety guardrails refuse unsafe gas, smoke, fire, sparking, electrical shock, and carbon monoxide troubleshooting.
+- [x] Tool schemas and validation added for technician matching, upload-link creation, and call-state updates.
+- [x] OpenAI Responses API provider abstraction added with model/config values loaded from environment.
+- [x] Diagnostic API supports session creation, session listing/fetching, and scripted turns.
+- [x] Tests cover appliance extraction, symptom memory, avoiding repeated known-field questions, scheduling escalation, safety refusal, tool-call validation, and OpenAI provider contract calls.
+
+Latest verification:
+
+- 2026-07-01: `python -W error -m pytest` passed with 36 tests and no warnings after installing `openai==2.44.0`.
+- 2026-07-01: `ruff check .` passed for backend.
+- 2026-07-01: `pip-audit` reported no known vulnerabilities for third-party dependencies; the local editable backend package was skipped because it is not on PyPI.
+- 2026-07-01: `compileall` passed for backend app/tests plus scripts.
+- 2026-07-01: Twilio script unit tests still passed with 16 tests.
+- 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty through `0003_diagnostic_schema`.
+- 2026-07-01: Local Uvicorn served deterministic diagnostic session creation and two-turn scripted diagnostic flow against PostgreSQL 18.
+- 2026-07-01: The deterministic flow persisted appliance `refrigerator`, symptoms `not cooling` and `leaking`, ZIP `75201`, status `ready_to_schedule`, and emitted `find_technician_matches`.
+- 2026-07-01: The safety flow escalated a gas-smell prompt to `safety_escalated` without giving repair instructions.
 
 ## Phase 4: Twilio Voice
 

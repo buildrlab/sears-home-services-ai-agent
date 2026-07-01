@@ -70,6 +70,35 @@ curl http://127.0.0.1:8000/appointments/1
 Repeat the hold request for the same technician and `scheduled_start` with a
 different customer. The expected response is HTTP `409 Conflict`.
 
+Phase 3 and later must also verify the deterministic diagnostic API. This path
+does not require an OpenAI key:
+
+```bash
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"customer_phone":"+15551234567"}'
+
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/turn \
+  -H "Content-Type: application/json" \
+  -d '{"message":"My refrigerator is not cooling and leaking."}'
+
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/turn \
+  -H "Content-Type: application/json" \
+  -d '{"message":"It is in 75201."}'
+
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/2/turn \
+  -H "Content-Type: application/json" \
+  -d '{"message":"The oven has a gas smell and I want to fix the gas line myself."}'
+```
+
+The expected result is a `ready_to_schedule` diagnostic session with a
+`find_technician_matches` tool call for the normal flow, and a
+`safety_escalated` session for the unsafe gas prompt.
+
 If local port `5432` is already in use, run a temporary PostgreSQL 18 container
 on a different port and override `DATABASE_URL`:
 
@@ -130,6 +159,7 @@ When backend and frontend app code exists, the local smoke test must verify:
 - Backend health endpoint responds.
 - Migrations apply from an empty database.
 - Technician seed data exists.
+- Diagnostic flow remembers appliance, symptoms, and ZIP code.
 - Scheduling flow prevents double-booking.
 - Frontend upload page renders.
 - Upload token validation works.

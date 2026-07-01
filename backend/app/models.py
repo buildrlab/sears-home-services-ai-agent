@@ -6,6 +6,7 @@ from datetime import datetime, time
 from enum import StrEnum
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
@@ -25,6 +26,21 @@ class AppointmentStatus(StrEnum):
     HELD = "held"
     BOOKED = "booked"
     CANCELLED = "cancelled"
+
+
+class DiagnosticSessionStatus(StrEnum):
+    ACTIVE = "active"
+    READY_TO_SCHEDULE = "ready_to_schedule"
+    SCHEDULED = "scheduled"
+    SAFETY_ESCALATED = "safety_escalated"
+    CLOSED = "closed"
+
+
+class DiagnosticEventRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+    SYSTEM = "system"
 
 
 class Technician(Base):
@@ -194,3 +210,64 @@ class Appointment(Base):
 
     customer: Mapped[Customer] = relationship(back_populates="appointments", lazy="selectin")
     technician: Mapped[Technician] = relationship(back_populates="appointments", lazy="selectin")
+
+
+class DiagnosticSession(Base):
+    __tablename__ = "diagnostic_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    external_call_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    customer_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    customer_phone: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    appliance_type: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    symptoms: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=DiagnosticSessionStatus.ACTIVE.value,
+        index=True,
+    )
+    safety_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    recommended_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    events: Mapped[list[DiagnosticEvent]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="DiagnosticEvent.id",
+    )
+
+
+class DiagnosticEvent(Base):
+    __tablename__ = "diagnostic_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("diagnostic_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_name: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    tool_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    session: Mapped[DiagnosticSession] = relationship(back_populates="events")

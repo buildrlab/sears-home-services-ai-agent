@@ -69,6 +69,9 @@ Smoke test the backend:
 ```bash
 curl http://127.0.0.1:8000/healthz
 curl "http://127.0.0.1:8000/scheduling/matches?zip_code=75201&appliance_type=refrigerator"
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"customer_phone":"+15551234567"}'
 ```
 
 Run frontend checks after frontend dependencies are installed:

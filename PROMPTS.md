@@ -651,3 +651,65 @@ possibly separate WebSocket handlers; it would not be one Lambda per route.
 - `docs/adr/0006-run-python-backend-on-fargate-with-separate-migration-task.md`
 - `docs/runbooks/aws-testing.md`
 - `infra/README.md`
+
+## 2026-07-01 Phase 3 Diagnostic Agent
+
+### Prompt
+
+The active goal instructed the assistant to continue working toward completing
+all phases. After merging the Fargate architecture decision, the next incomplete
+phase was Phase 3: diagnostic agent.
+
+### Response
+
+The assistant implemented the Phase 3 diagnostic agent foundation: persisted
+diagnostic sessions and events, deterministic local provider, appliance/symptom
+and ZIP extraction, safety guardrails for unsafe troubleshooting, tool schemas
+for scheduling/upload/call-state updates, OpenAI Responses provider abstraction,
+and diagnostic API endpoints. The default local path uses deterministic logic
+when no OpenAI key is configured, while the OpenAI provider is covered by a fake
+client contract test.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `README.md`
+- `backend/.env.example`
+- `backend/README.md`
+- `backend/alembic/versions/0003_create_diagnostic_session_schema.py`
+- `backend/app/agent/__init__.py`
+- `backend/app/agent/extraction.py`
+- `backend/app/agent/providers.py`
+- `backend/app/agent/safety.py`
+- `backend/app/agent/tools.py`
+- `backend/app/api/diagnostics.py`
+- `backend/app/config.py`
+- `backend/app/exceptions.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/app/schemas.py`
+- `backend/app/services/diagnostics.py`
+- `backend/pyproject.toml`
+- `backend/tests/test_agent_tools.py`
+- `backend/tests/test_config.py`
+- `backend/tests/test_diagnostics_api.py`
+- `backend/tests/test_diagnostics_service.py`
+- `backend/tests/test_migrations.py`
+- `backend/tests/test_openai_provider.py`
+- `docs/runbooks/local-testing.md`
+
+### Verification
+
+- Installed `openai==2.44.0` into the local backend virtual environment.
+- `python -W error -m pytest` passed with 36 tests.
+- `ruff check .` passed for backend.
+- `pip-audit` reported no known third-party vulnerabilities; the local editable
+  backend package was skipped because it is not on PyPI.
+- `compileall` passed for backend app/tests plus scripts.
+- Twilio script unit tests still passed with 16 tests.
+- Alembic migrated PostgreSQL 18 from empty through `0003_diagnostic_schema`.
+- Local deterministic API smoke verified diagnostic session creation, two-turn
+  appliance/symptom/ZIP flow, `find_technician_matches` tool-call emission, and
+  unsafe gas prompt safety escalation.

@@ -17,3 +17,11 @@ class InvalidSchedulingRequestError(SchedulingError):
 
 class SlotUnavailableError(SchedulingError):
     """Raised when a requested appointment slot is already held or booked."""
+
+
+class DiagnosticError(Exception):
+    """Base class for diagnostic workflow failures."""
+
+
+class DiagnosticSessionNotFoundError(DiagnosticError):
+    """Raised when a diagnostic session cannot be found."""
