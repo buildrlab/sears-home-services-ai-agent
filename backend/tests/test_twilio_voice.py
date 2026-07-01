@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,6 +15,7 @@ from app.dependencies import get_db_session
 from app.main import create_app
 from app.models import Appointment, AppointmentStatus, CallEvent, CallSession
 from app.seed import seed_reference_data
+from app.services.twilio_voice import TwilioVoiceService, parse_websocket_payload
 
 BASE_URL = "https://api.test"
 TWILIO_AUTH_TOKEN = "test-token"  # noqa: S105
@@ -130,6 +133,33 @@ def test_incoming_voice_rejects_invalid_signature_when_validation_enabled(
     assert db_session.scalars(select(CallSession)).all() == []
 
 
+def test_incoming_voice_allows_unsigned_webhook_when_validation_disabled(
+    db_session: Session,
+) -> None:
+    client = _client(db_session, validate_requests=False)
+
+    response = client.post("/twilio/voice/incoming", data=_twilio_params(call_sid="CAUNSIGNED"))
+
+    assert response.status_code == 200
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.call_sid == "CAUNSIGNED"
+
+
+def test_incoming_voice_requires_call_sid(db_session: Session) -> None:
+    client = _client(db_session)
+    params = _twilio_params()
+    params.pop("CallSid")
+
+    response = client.post(
+        "/twilio/voice/incoming",
+        data=params,
+        headers=_signed_headers("/twilio/voice/incoming", params),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "CallSid is required."
+
+
 def test_incoming_voice_can_return_conversation_relay_twiml(db_session: Session) -> None:
     client = _client(db_session, voice_mode="conversationrelay")
     params = _twilio_params()
@@ -173,6 +203,25 @@ def test_gather_response_runs_deterministic_diagnostic_turn(db_session: Session)
         "voice_incoming",
         "gather_response",
     ]
+
+
+def test_gather_response_prompts_to_repeat_blank_speech(db_session: Session) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CABLANK")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/gather", incoming_params),
+    )
+
+    assert response.status_code == 200
+    assert "Please repeat that." in response.text
 
 
 def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Session) -> None:
@@ -362,6 +411,32 @@ def test_status_callback_marks_failed_call_statuses(db_session: Session) -> None
     assert call_session.status == "failed"
 
 
+def test_twilio_service_returns_existing_call_session_and_404_for_missing(
+    db_session: Session,
+) -> None:
+    service = TwilioVoiceService(db_session, Settings(environment="test"))
+    created = service.create_or_get_call_session({"CallSid": "CAEXISTING"})
+
+    assert service.create_or_get_call_session({"CallSid": "CAEXISTING"}).id == created.id
+    with pytest.raises(HTTPException) as exc:
+        service.get_call_session("CAMISSING")
+    assert exc.value.status_code == 404
+
+
+def test_twilio_service_process_speech_recovers_detached_call_session(
+    db_session: Session,
+) -> None:
+    service = TwilioVoiceService(db_session, Settings(environment="test"))
+    call_session = CallSession(call_sid="CADETACHED", status="active", voice_mode="gather")
+    db_session.add(call_session)
+    db_session.flush()
+
+    response = service.process_speech(call_session, "My washer will not start in 78205.")
+
+    assert call_session.diagnostic_session_id is not None
+    assert "Do you prefer a morning or afternoon appointment" in response
+
+
 def test_conversation_relay_websocket_creates_session_and_returns_text(
     db_session: Session,
 ) -> None:
@@ -388,6 +463,41 @@ def test_conversation_relay_websocket_creates_session_and_returns_text(
         "conversation_setup",
         "conversation_prompt",
     ]
+
+
+def test_conversation_relay_websocket_handles_invalid_blank_and_unknown_events(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+
+    with client.websocket_connect(
+        "/twilio/conversation",
+        headers=_signed_websocket_headers(),
+    ) as websocket:
+        websocket.send_text("not-json")
+        assert websocket.receive_json() == {
+            "type": "error",
+            "message": "Invalid JSON payload.",
+        }
+
+        websocket.send_json({"type": "setup", "callSid": "CAWSERR"})
+        assert websocket.receive_json() == {"type": "setup_ack", "callSid": "CAWSERR"}
+
+        websocket.send_json({"type": "text", "text": ""})
+        repeat_response = websocket.receive_json()
+        response_text = repeat_response.get("token")
+        assert response_text == "Please repeat that."
+
+        websocket.send_json({"type": "unsupported"})
+        assert websocket.receive_json() == {
+            "type": "error",
+            "message": "Unsupported event.",
+        }
+
+
+def test_parse_websocket_payload_rejects_non_object_json() -> None:
+    with pytest.raises(ValueError, match="JSON object"):
+        parse_websocket_payload('["not", "an", "object"]')
 
 
 def test_conversation_relay_websocket_rejects_missing_signature(db_session: Session) -> None:

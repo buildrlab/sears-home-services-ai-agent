@@ -94,18 +94,6 @@ describe("Dashboard", () => {
 
   it("can send a diagnostic turn and refresh data", async () => {
     mockDashboardRequests(fetchMock);
-    fetchMock.mockImplementationOnce((input, init) => {
-      const url = requestUrl(input);
-      if (url.endsWith("/diagnostics/sessions/42/turn") && init?.method === "POST") {
-        return Promise.resolve(jsonResponse({
-          session,
-          assistant_message: "I captured the appliance and symptom.",
-          tool_calls: [],
-        }));
-      }
-      return Promise.reject(new Error(`Unexpected request: ${url}`));
-    });
-    mockDashboardRequests(fetchMock);
     const user = userEvent.setup();
 
     render(<Dashboard />);
@@ -122,27 +110,55 @@ describe("Dashboard", () => {
       );
     });
   });
+
+  it("validates contact details before creating a session", async () => {
+    mockDashboardRequests(fetchMock);
+    const user = userEvent.setup();
+
+    render(<Dashboard />);
+
+    await screen.findByRole("heading", { name: /diagnostic operations/i });
+    await user.click(screen.getByRole("button", { name: /create session/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter an email or phone number for the diagnostic session."
+    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) =>
+          requestUrl(input).endsWith("/diagnostics/sessions") && init?.method === "POST"
+      )
+    ).toBe(false);
+  });
+
+  it("shows a dashboard load error", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ detail: "backend unavailable" }, 503));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ appointments: [] }));
+
+    render(<Dashboard />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Request failed with 503");
+  });
 });
 
 function mockDashboardRequests(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>) {
-  fetchMock.mockImplementationOnce((input) => {
+  fetchMock.mockImplementation((input, init) => {
     const url = requestUrl(input);
     if (url.endsWith("/diagnostics/sessions")) {
       return Promise.resolve(jsonResponse({ sessions: [session] }));
     }
-    return Promise.reject(new Error(`Unexpected request: ${url}`));
-  });
-  fetchMock.mockImplementationOnce((input) => {
-    const url = requestUrl(input);
     if (url.endsWith("/appointments")) {
       return Promise.resolve(jsonResponse({ appointments: [appointment] }));
     }
-    return Promise.reject(new Error(`Unexpected request: ${url}`));
-  });
-  fetchMock.mockImplementationOnce((input) => {
-    const url = requestUrl(input);
     if (url.endsWith("/diagnostics/sessions/42/uploads")) {
       return Promise.resolve(jsonResponse({ uploads: [upload] }));
+    }
+    if (url.endsWith("/diagnostics/sessions/42/turn") && init?.method === "POST") {
+      return Promise.resolve(jsonResponse({
+        session,
+        assistant_message: "I captured the appliance and symptom.",
+        tool_calls: [],
+      }));
     }
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });

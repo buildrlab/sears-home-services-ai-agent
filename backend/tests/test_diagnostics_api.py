@@ -61,10 +61,18 @@ def test_diagnostic_api_scripted_call_flow(db_session: Session) -> None:
         }
     ]
 
+    list_response = client.get("/diagnostics/sessions")
+    assert list_response.status_code == 200
+    assert list_response.json()["sessions"][0]["id"] == session_id
+
+    fetch_response = client.get(f"/diagnostics/sessions/{session_id}")
+    assert fetch_response.status_code == 200
+    assert fetch_response.json()["id"] == session_id
+
 
 def test_diagnostic_api_returns_404_for_missing_session(db_session: Session) -> None:
     client = _client(db_session)
 
-    response = client.post("/diagnostics/sessions/999/turn", json={"message": "hello"})
-
-    assert response.status_code == 404
+    assert client.get("/diagnostics/sessions/999").status_code == 404
+    missing_turn = client.post("/diagnostics/sessions/999/turn", json={"message": "hello"})
+    assert missing_turn.status_code == 404
