@@ -1572,6 +1572,45 @@ calling `terraform output`.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
 
+## 2026-07-01 Post-Merge Deploy for Destroy Workflow Branch
+
+### Prompt
+
+The user asked to make sure the project has a destroy GitHub Action that can be
+triggered when the project is over, while previous standing instructions
+required merged changes to be pushed through PRs and kept live-complete.
+
+### Response
+
+The assistant merged PR #29 into `dev` after all checks passed, then triggered
+AWS Deploy workflow run `28509975570` from `dev` with `mode=apply`,
+`bootstrap_backend=false`, `api_desired_count=1`, and
+`worker_desired_count=1`.
+
+The deploy completed successfully in 3m47s. It applied shared/backend/frontend
+Terraform, published runtime secrets, built and pushed the backend image, ran
+the Alembic Fargate migration task, built and uploaded the frontend, invalidated
+CloudFront, and ran the workflow remote smoke checks.
+
+The assistant then ran local post-deploy verification. Initial sandboxed checks
+failed because DNS/browser launch were blocked by sandbox restrictions. The same
+remote smoke and deployed Playwright commands passed when rerun with approved
+network/browser execution.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- GitHub PR #29 checks passed: backend, frontend, scripts, dependency audit,
+  secret scan, Terraform matrix, and Terraform security.
+- AWS Deploy run `28509975570` passed.
+- `python3.14 scripts/aws/remote_smoke.py --api-base-url https://api.shs.buildrlab.com --frontend-base-url https://shs.buildrlab.com` passed.
+- `PLAYWRIGHT_BASE_URL=https://shs.buildrlab.com corepack pnpm test:e2e`
+  passed with 2 Chromium tests.
+
 ## 2026-07-01 Manual AWS Destroy Workflow
 
 ### Prompt

@@ -632,6 +632,10 @@ Current GitHub configuration check:
 - 2026-07-01: AWS live checks found Aurora PostgreSQL Serverless v2 available, ECS API and worker services active with completed rollouts, ALB target healthy, SQS vision DLQ empty, SES identity/DKIM verified, and no recent API/migration/worker CloudWatch errors.
 - 2026-07-01: SES account-level production access is still disabled, so arbitrary reviewer/customer email delivery remains gated by SES sandbox approval or verified recipients.
 - 2026-07-01: Added a guarded `.github/workflows/aws-destroy.yml` manual workflow for project teardown. It defaults to plan mode, requires exact confirmation and `delete_data=true` before mutation, destroys frontend then backend then optional shared resources, leaves the shared Terraform state bucket intact, and uses destroy-only Terraform variables to disable deletion protection and allow S3/ECR cleanup.
+- 2026-07-01: PR #29 (`codex/graceful-upload-email-failure`) merged into `dev` at `87570c7`, adding the guarded AWS destroy workflow, upload-email failure fallback, and blank optional setting normalization.
+- 2026-07-01: AWS Deploy workflow run `28509975570` succeeded from `dev` in `apply` mode with `bootstrap_backend=false`, including backend image deployment, Alembic migration, frontend upload, CloudFront invalidation, and workflow remote smoke.
+- 2026-07-01: Post-deploy local remote smoke passed against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
+- 2026-07-01: Post-deploy Playwright passed against `https://shs.buildrlab.com` with 2 Chromium tests and no console-error failures.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -655,6 +659,7 @@ Latest local verification:
 - 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` now passes all deploy preflight checks after the GitHub `prod` environment, required secrets, and required variables were configured.
 - 2026-07-01: Deploy preflight unit tests passed as part of the root script test suite.
 - 2026-07-01: Destroy workflow validation passed: `actionlint .github/workflows/*.yml`, Ruby YAML parsing for all workflows, `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` with 61 tests, `backend/.venv/bin/ruff check scripts tests`, and `scripts/terraform/validate.sh`.
+- 2026-07-01: Deploy run `28509975570` completed successfully in 3m47s after PR #29 merged to `dev`.
 
 Exit criteria:
 
@@ -709,6 +714,7 @@ Latest local verification:
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
 - 2026-07-01: `scripts/reviewer/local_smoke.py --api-base-url http://127.0.0.1:8000` passed against a temporary PostgreSQL 18 database, Mailpit, MinIO, and local Uvicorn backend; it verified Tier 1 diagnostics, Tier 2 appointment booking, Twilio Gather fallback, Tier 3 object upload, deterministic image analysis, and session history.
 - 2026-07-01: Current branch verification passed: backend `.venv/bin/python -W error -m pytest` with 62 tests, backend Ruff, root script unit tests with 61 tests, frontend `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `actionlint`, Ruby workflow YAML parsing, `scripts/terraform/validate.sh`, and `git diff --check`.
+- 2026-07-01: Post-merge AWS deploy run `28509975570` passed, then local remote smoke and deployed Playwright passed from this workstation after allowing network/browser execution outside the sandbox.
 
 Exit criteria:
 
