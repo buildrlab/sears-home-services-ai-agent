@@ -1572,6 +1572,61 @@ calling `terraform output`.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
 
+## 2026-07-01 Final Live Validation and Completion
+
+### Prompt
+
+The user asked the assistant to implement everything after reviewing `PLAN.md`
+and identifying remaining live Twilio, SES, Tier 3 upload/image-analysis, and
+final documentation gates.
+
+### Response
+
+The assistant added a final live AWS smoke script that validates the deployed
+reviewer path end to end without disabling production controls. The script reads
+the Twilio auth token from AWS Secrets Manager through the AWS CLI, creates a
+disposable diagnostic session, posts production-signed Twilio webhook requests,
+sends an SES upload-link email to a verified recipient, uploads a tiny PNG
+through the presigned S3 POST, runs image analysis, and verifies that the
+diagnostic session history records the image-analysis event.
+
+The assistant updated the plan and reviewer documentation to mark Phases 4, 8,
+and 9 complete, record that Gather is the deployed reviewer voice path while
+ConversationRelay remains a provider-gated upgrade, and document the SES sandbox
+constraint for arbitrary external recipients.
+
+### Files Changed
+
+- `scripts/aws/final_live_smoke.py`
+- `scripts/aws/README.md`
+- `scripts/reviewer/final_readiness.py`
+- `tests/test_aws_scripts.py`
+- `PLAN.md`
+- `PROMPTS.md`
+- `README.md`
+- `docs/adr/0002-use-twilio-conversationrelay-with-gather-fallback.md`
+- `docs/technical-design.md`
+- `docs/submission-hardening.md`
+- `docs/runbooks/aws-testing.md`
+
+### Verification
+
+- `python3.14 scripts/aws/final_live_smoke.py --api-base-url https://api.shs.buildrlab.com --email-to no-reply@shs.buildrlab.com --aws-profile sears --json` passed with API health, Tier 1 diagnostic state, production-signed Twilio webhooks, SES verified-recipient email acceptance, S3 object upload, OpenAI image analysis, and session-history verification.
+- `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` passed all GitHub environment, secret, variable, branch protection, and AWS identity checks.
+- AWS ECS service review confirmed the API and worker services were active with desired/running count 1 and completed rollouts.
+- SQS vision DLQ checks reported zero visible, delayed, and in-flight messages.
+- CloudWatch API, worker, and migration log checks returned no recent error events.
+- SES account review showed sending enabled and healthy enforcement, with production access still disabled.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 65 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `python3.14 scripts/aws/final_live_smoke.py --help` passed.
+- `git diff --check` passed.
+- `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` passed
+  with external GitHub/AWS network access.
+- `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
+  passed with external GitHub/AWS network access.
+
 ## 2026-07-01 Post-Merge Deploy for Destroy Workflow Branch
 
 ### Prompt

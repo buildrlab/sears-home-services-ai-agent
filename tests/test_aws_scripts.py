@@ -22,6 +22,7 @@ def _load_script_module(module_name: str, script_name: str) -> Any:
 
 
 REMOTE_SMOKE = _load_script_module("aws_remote_smoke_script", "remote_smoke.py")
+FINAL_LIVE_SMOKE = _load_script_module("aws_final_live_smoke_script", "final_live_smoke.py")
 
 
 class AwsRemoteSmokeTests(unittest.TestCase):
@@ -104,6 +105,50 @@ class AwsRemoteSmokeTests(unittest.TestCase):
 
         self.assertEqual(shell["check"], "frontend_shell")
         self.assertEqual(upload["check"], "frontend_upload_route")
+
+
+class AwsFinalLiveSmokeTests(unittest.TestCase):
+    def test_script_supports_help(self) -> None:
+        result = subprocess.run(  # noqa: S603
+            [sys.executable, str(AWS_DIR / "final_live_smoke.py"), "--help"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("usage:", result.stdout)
+
+    def test_twilio_signature_matches_expected_algorithm(self) -> None:
+        signature = FINAL_LIVE_SMOKE.build_twilio_signature(
+            "https://api.example.test/twilio/voice/incoming",
+            {"CallSid": "CA123", "From": "+15550100001", "To": "+15550100002"},
+            "secret",
+        )
+
+        self.assertEqual(signature, "KQps7TTcyAzwgr9C+y5FIFsYj0I=")
+
+    def test_aws_secret_lookup_uses_profile_without_printing_secret(self) -> None:
+        calls: list[tuple[str, ...]] = []
+
+        def runner(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            calls.append(tuple(command))
+            return subprocess.CompletedProcess(command, 0, stdout="twilio-token\n", stderr="")
+
+        secret = FINAL_LIVE_SMOKE.get_secret_with_aws_cli(
+            secret_id="/test/twilio",  # noqa: S106
+            profile="sears",
+            region="us-east-1",
+            runner=runner,
+        )
+
+        self.assertEqual(secret, "twilio-token")
+        self.assertEqual(calls[0][-2:], ("--profile", "sears"))
+
+    def test_email_redaction_keeps_domain(self) -> None:
+        redacted = FINAL_LIVE_SMOKE.redact_email("no-reply@shs.buildrlab.com")
+
+        self.assertEqual(redacted, "no...@shs.buildrlab.com")
 
 
 if __name__ == "__main__":

@@ -190,7 +190,20 @@ pushes the backend image, verifies required runtime secrets, applies ECS service
 desired counts, runs the Alembic Fargate task, builds/uploads the frontend, and
 executes `scripts/aws/remote_smoke.py`.
 
-AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio call testing, SES upload-link testing, and image-analysis verification.
+AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio live-path testing, SES upload-link testing, and image-analysis verification.
+
+Final live AWS smoke:
+
+```bash
+AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py \
+  --api-base-url https://api.shs.buildrlab.com \
+  --email-to no-reply@shs.buildrlab.com
+```
+
+The configured Twilio test number is `+17373559397`. The deployed reviewer
+voice path uses Twilio Gather unless ConversationRelay is enabled in the Twilio
+account. SES is currently validated with recipients under the verified
+`shs.buildrlab.com` domain.
 
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.

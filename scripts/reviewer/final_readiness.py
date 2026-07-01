@@ -23,6 +23,7 @@ REQUIRED_FILES = (
     "docs/runbooks/aws-testing.md",
     "scripts/reviewer/local_smoke.py",
     "scripts/aws/remote_smoke.py",
+    "scripts/aws/final_live_smoke.py",
     "scripts/aws/deploy_preflight.py",
     "scripts/github/configure_deploy.py",
     "scripts/github/configure_branch_protection.py",

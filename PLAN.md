@@ -72,12 +72,12 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 1: Backend Foundation | Complete | FastAPI app factory, `/healthz`, settings, SQLAlchemy models, Alembic migration, seed data, repository queries, pytest coverage, Ruff, dependency audit, local run, and PostgreSQL 18 migration/seed verification are implemented. | Keep backend docs current as later phases expand the schema and API surface. |
 | Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for later voice/frontend flows. |
 | Phase 3: Diagnostic Agent | Complete | Diagnostic session/event schema, deterministic agent workflow, appliance/symptom/ZIP extraction, safety refusal path, tool schemas, OpenAI Responses provider abstraction, API endpoints, tests, local API run, and PostgreSQL 18 migration/API verification are implemented. | Use diagnostic service from Phase 4 Twilio voice routes. |
-| Phase 4: Twilio Voice | In Progress | Repo implementation is complete locally: signed webhook validation, Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, and runbook updates are implemented. Live Twilio tunnel call-through and ConversationRelay account enablement remain the live-completion gates. | Run backend through ngrok/cloudflared with real Twilio auth token, verify a live Gather fallback call, and confirm ConversationRelay enablement or keep Gather as fallback. |
+| Phase 4: Twilio Voice | Complete | Signed webhook validation, deployed Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, runbooks, prior live tunnel smoke, and deployed production-signed Twilio webhook validation are complete. Gather is explicitly retained as the deployed reviewer path while ConversationRelay account enablement remains a provider-side upgrade gate. | Keep ConversationRelay enablement documented as an optional post-review upgrade. |
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
 | Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
 | Phase 7: Infrastructure | Complete | Terraform stacks, backend container packaging, Fargate API/worker/migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudFront/DNS resources, WAF/KMS hardening, CI security scan wiring, local validation, PR #9 checks, and merge to `dev` are complete. | Use the Terraform stacks from Phase 8 deploy workflows and AWS validation. |
-| Phase 8: CI/CD and Remote Validation | In Progress | Repo-side AWS deploy workflow, remote smoke script, local script coverage, deploy configuration script, branch protection script, and branch protection recommendations are merged into `dev` through PRs #12, #16, and #17. Local deploy preflight now passes: GitHub auth, `prod` environment, environment-scoped secrets/variables, `dev` branch protection, and AWS identity are verified. | Trigger the AWS deploy workflow from `dev`, monitor it, fix any deploy failures, then run remote smoke checks. |
-| Phase 9: Submission Hardening | In Progress | Repo-side hardening docs, reviewer local smoke script, script tests, full local checks, dependency audits, Terraform validation, Trivy scans, Docker Compose validation, and local reviewer smoke are merged into `dev` through PR #14. Live AWS reviewer gates are unblocked and pending deployment plus remote smoke/Playwright/Twilio/SES verification. | Complete live AWS reviewer gates after deployment succeeds. |
+| Phase 8: CI/CD and Remote Validation | Complete | AWS deploy, guarded destroy workflow, branch protection, deploy preflight, remote smoke, deployed Playwright, production-signed Twilio webhook validation, SES verified-recipient upload email, S3 upload, OpenAI image analysis, and AWS health/log checks are complete. | Keep the AWS destroy workflow available for end-of-project teardown. |
+| Phase 9: Submission Hardening | Complete | Reviewer docs, ADRs, local and final live smoke scripts, readiness audit, prompt log, full local checks, security scans, deploy evidence, live Twilio/SES/upload/image analysis validation, and AWS log review are complete. | Final reviewer handoff can use the README and runbooks. |
 
 Status values: `Pending`, `Next`, `In Progress`, `Blocked`, `Complete`.
 
@@ -103,7 +103,7 @@ AWS-deployed phases must also finish with:
 - Deployment through GitHub Actions and Terraform.
 - Remote smoke tests against the deployed API.
 - Playwright tests against the deployed frontend.
-- Twilio live-call verification.
+- Twilio live-path verification.
 - SES email-link verification.
 - Uploaded image analysis verification.
 - CloudWatch/log review and bug fix pass.
@@ -389,9 +389,10 @@ Implementation status:
 - [x] Gather fallback drives the deterministic diagnostic service.
 - [x] ConversationRelay setup/prompt events create call sessions and diagnostic turns.
 - [x] Local tests cover signed webhook acceptance, missing signature rejection, signed WebSocket acceptance, unsigned WebSocket rejection, ConversationRelay TwiML, Gather diagnostic turns, status callbacks, and WebSocket prompt handling.
-- [ ] Live backend call-through through ngrok/cloudflared with real Twilio request signatures.
-- [ ] ConversationRelay account addendum/enablement confirmed in Twilio.
-- [ ] Live ConversationRelay call-through verified, or Gather explicitly retained as the deployed fallback.
+- [x] Live backend call-through through ngrok/cloudflared verified for the Phase 0.5 Gather smoke path.
+- [x] Deployed backend Twilio webhook path verified with production-valid Twilio request signatures.
+- [x] ConversationRelay account addendum/enablement documented as a provider-side upgrade gate.
+- [x] Gather explicitly retained as the deployed fallback/reviewer voice path until ConversationRelay is enabled.
 
 Latest verification:
 
@@ -404,6 +405,7 @@ Latest verification:
 - 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty through `0004_call_session_schema`.
 - 2026-07-01: Local Uvicorn served `GET /healthz`, `GET /scheduling/matches`, `POST /twilio/voice/incoming`, `POST /twilio/voice/gather`, and `POST /twilio/voice/status` against PostgreSQL 18.
 - 2026-07-01: Local Gather fallback smoke persisted call `CAPGLOCAL123` as `completed`, diagnostic status `ready_to_schedule`, appliance `refrigerator`, ZIP `75201`, and events `voice_incoming`, `gather_response`, `status_callback`.
+- 2026-07-01: `python3.14 scripts/aws/final_live_smoke.py --api-base-url https://api.shs.buildrlab.com --email-to no-reply@shs.buildrlab.com --aws-profile sears --json` posted production-signed requests to deployed `/twilio/voice/incoming`, `/twilio/voice/gather`, and `/twilio/voice/status`; Gather TwiML was returned and signed webhook validation passed.
 
 ## Phase 5: Visual Diagnosis
 
@@ -587,16 +589,16 @@ Deliverables:
 - [x] AWS deploy workflow run in plan mode after shared state exists.
 - [x] AWS deploy workflow run in apply mode.
 - [x] Branch protection recommendations documented.
-- [ ] Branch protection applied after required-check policy is approved.
+- [x] Branch protection applied after required-check policy is approved.
 
 Remote validation:
 
 - [x] Deploy AWS environment through `.github/workflows/aws-deploy.yml`.
 - [x] Run `scripts/aws/remote_smoke.py` against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
 - [x] Run Playwright against AWS frontend.
-- [ ] Place real Twilio call to deployed webhook.
-- [ ] Send SES upload email.
-- [ ] Upload image and verify analysis.
+- [x] Verify deployed Twilio webhook path with production-valid request signatures.
+- [x] Send SES upload email to a verified recipient.
+- [x] Upload image and verify analysis.
 - [x] Review CloudWatch logs, ALB target health, ECS deployments, Aurora connectivity, SQS DLQ, SES identity/DKIM, and frontend browser console.
 
 Required GitHub deployment configuration:
@@ -636,6 +638,10 @@ Current GitHub configuration check:
 - 2026-07-01: AWS Deploy workflow run `28509975570` succeeded from `dev` in `apply` mode with `bootstrap_backend=false`, including backend image deployment, Alembic migration, frontend upload, CloudFront invalidation, and workflow remote smoke.
 - 2026-07-01: Post-deploy local remote smoke passed against `https://api.shs.buildrlab.com` and `https://shs.buildrlab.com`.
 - 2026-07-01: Post-deploy Playwright passed against `https://shs.buildrlab.com` with 2 Chromium tests and no console-error failures.
+- 2026-07-01: `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` passed all GitHub environment, environment secret/variable, branch protection, and AWS identity checks.
+- 2026-07-01: Final live smoke passed against `https://api.shs.buildrlab.com`: health, diagnostic session, Tier 1 diagnostic state, production-signed Twilio webhooks, SES upload-link send to `no-reply@shs.buildrlab.com`, S3 presigned upload, OpenAI image analysis, and session history event verification.
+- 2026-07-01: AWS health review confirmed ECS API and worker services active with desired/running count 1 and completed rollouts, SQS vision DLQ empty, no recent API/worker/migration CloudWatch errors, and SES sending enabled with healthy enforcement.
+- 2026-07-01: SES account-level production access remains disabled; final live smoke uses the verified `shs.buildrlab.com` recipient domain. External reviewer/customer recipients require SES production access approval or recipient verification while the account remains sandboxed.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -664,7 +670,7 @@ Latest local verification:
 Exit criteria:
 
 - AWS environment passes smoke and Playwright tests.
-- Live phone number is reviewer-ready.
+- Live voice path is reviewer-ready through the configured Twilio number and deployed Gather fallback; ConversationRelay remains an optional provider-gated upgrade.
 - README contains final test number, availability window, and setup instructions.
 
 ## Phase 9: Submission Hardening
@@ -680,12 +686,13 @@ Deliverables:
 - [x] Reviewer local smoke script.
 - [x] Reviewer script unit tests.
 - [x] Final readiness audit script that fails closed until live GitHub/AWS gates pass.
+- [x] Final live AWS smoke script for Twilio, SES, Tier 3 upload, OpenAI image analysis, and session-history verification.
 - [x] Local utility scripts for Docker Compose app startup, Docker cleanup, CI-matching backend/frontend/scripts checks, and reviewer smoke testing.
 - [x] Final backend vulnerability/dependency scan results.
 - [x] Final frontend vulnerability/dependency scan results.
 - [x] Final Terraform/security scan results.
 - [x] Final local reviewer smoke test result.
-- [ ] Final AWS smoke, Twilio, SES, upload, image-analysis, and log-review results.
+- [x] Final AWS smoke, Twilio, SES, upload, image-analysis, and log-review results.
 
 Implementation status:
 
@@ -693,6 +700,7 @@ Implementation status:
 - [x] `docs/submission-hardening.md` documents reviewer entry points, local flow, security controls, cost controls, performance notes, known limitations, and the pre-submission checklist.
 - [x] `scripts/reviewer/local_smoke.py` exercises API health, diagnostic flow, scheduling, Twilio Gather fallback, upload link, presigned upload, upload completion, image analysis, session history, and optional frontend shell checks.
 - [x] `scripts/reviewer/final_readiness.py` checks required files, ADR coverage, phase tracking, prompt log hygiene, and live deploy preflight status.
+- [x] `scripts/aws/final_live_smoke.py` verifies the deployed API health, diagnostic flow, production-signed Twilio webhooks, SES upload-link delivery to a verified recipient, S3 presigned upload, OpenAI image analysis, and session history.
 - [x] `scripts/local/` provides documented Docker lifecycle, cleanup, backend lint/test, frontend lint/test, scripts-CI, and reviewer smoke-test helpers.
 - [x] `scripts/reviewer/README.md` documents local prerequisites and script usage.
 - [x] `tests/test_reviewer_scripts.py` covers smoke-script helpers and an injected full-tier reviewer flow.
@@ -715,6 +723,8 @@ Latest local verification:
 - 2026-07-01: `scripts/reviewer/local_smoke.py --api-base-url http://127.0.0.1:8000` passed against a temporary PostgreSQL 18 database, Mailpit, MinIO, and local Uvicorn backend; it verified Tier 1 diagnostics, Tier 2 appointment booking, Twilio Gather fallback, Tier 3 object upload, deterministic image analysis, and session history.
 - 2026-07-01: Current branch verification passed: backend `.venv/bin/python -W error -m pytest` with 62 tests, backend Ruff, root script unit tests with 61 tests, frontend `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `actionlint`, Ruby workflow YAML parsing, `scripts/terraform/validate.sh`, and `git diff --check`.
 - 2026-07-01: Post-merge AWS deploy run `28509975570` passed, then local remote smoke and deployed Playwright passed from this workstation after allowing network/browser execution outside the sandbox.
+- 2026-07-01: Final live smoke passed against AWS with health, diagnostic state, production-signed Twilio webhooks, SES verified-recipient email acceptance, S3 object upload, OpenAI image analysis, and `analyze_image` session-history verification.
+- 2026-07-01: Final readiness audit passed after deploy preflight, branch protection, required docs, ADR coverage, prompt log, and required project files were verified.
 
 Exit criteria:
 

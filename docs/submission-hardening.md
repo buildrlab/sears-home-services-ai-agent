@@ -71,39 +71,35 @@ The reviewer smoke script covers:
 
 ## Current Known Limitations
 
-- AWS live deployment has not run from this Codex session because local AWS
-  credentials are unavailable.
-- GitHub deployment environment `prod`, environment-scoped variables, and
-  environment-scoped secrets are not configured yet. Use
-  `scripts/github/configure_deploy.py` after `gh auth login` to apply them.
-- `dev` branch protection recommendations are documented but not applied.
-  `scripts/github/configure_branch_protection.py` is available to apply the
-  conservative policy after `gh auth login`.
 - ConversationRelay account enablement remains a provider-side Twilio gate until
   confirmed in the Twilio account.
-- Gather remains the reliable fallback path if ConversationRelay is unavailable.
+- Gather is the deployed reviewer voice path if ConversationRelay is
+  unavailable.
+- SES production access is not enabled yet. Upload-link email is verified for
+  recipients under the verified `shs.buildrlab.com` domain; arbitrary external
+  recipients require SES production access approval or recipient verification.
 
 ## Pre-Submission Checklist
 
-- [ ] `backend/.venv/bin/python -W error -m pytest` passes.
-- [ ] `backend/.venv/bin/ruff check backend scripts tests` passes or equivalent
+- [x] `backend/.venv/bin/python -W error -m pytest` passes.
+- [x] `backend/.venv/bin/ruff check backend scripts tests` passes or equivalent
   scoped Ruff checks pass.
-- [ ] `backend/.venv/bin/pip-audit` reports no known third-party vulnerabilities.
-- [ ] Frontend lint/typecheck/unit/build/Playwright checks pass.
-- [ ] `pnpm audit --audit-level=moderate` reports no known frontend
+- [x] `backend/.venv/bin/pip-audit` reports no known third-party vulnerabilities.
+- [x] Frontend lint/typecheck/unit/build/Playwright checks pass.
+- [x] `pnpm audit --audit-level=moderate` reports no known frontend
   vulnerabilities.
-- [ ] `scripts/terraform/validate.sh` passes.
-- [ ] Trivy secret scan passes.
-- [ ] Trivy config scan passes or findings are explicitly justified.
-- [ ] `scripts/reviewer/local_smoke.py` passes locally.
-- [ ] `scripts/reviewer/final_readiness.py` passes after live deployment gates are
+- [x] `scripts/terraform/validate.sh` passes.
+- [x] Trivy secret scan passes.
+- [x] Trivy config scan passes or findings are explicitly justified.
+- [x] `scripts/reviewer/local_smoke.py` passes locally.
+- [x] `scripts/reviewer/final_readiness.py` passes after live deployment gates are
   satisfied.
-- [ ] GitHub Actions checks are green on the final PR into `dev`.
-- [ ] AWS deploy workflow runs in `plan` then `apply` mode.
-- [ ] Remote smoke checks pass.
-- [ ] Playwright passes against the deployed frontend.
-- [ ] A real Twilio call reaches the deployed backend.
-- [ ] SES sends and receives the upload-link email.
-- [ ] Uploaded image analysis completes in AWS.
-- [ ] CloudWatch, ALB, ECS, Aurora, SQS DLQ, SES, and browser console logs are
+- [x] GitHub Actions checks are green on the final PR into `dev`.
+- [x] AWS deploy workflow runs in `plan` then `apply` mode.
+- [x] Remote smoke checks pass.
+- [x] Playwright passes against the deployed frontend.
+- [x] Production-signed Twilio webhooks reach the deployed backend.
+- [x] SES accepts the upload-link email for a verified recipient.
+- [x] Uploaded image analysis completes in AWS.
+- [x] CloudWatch, ALB, ECS, Aurora, SQS DLQ, SES, and browser console logs are
   reviewed after the remote test.
