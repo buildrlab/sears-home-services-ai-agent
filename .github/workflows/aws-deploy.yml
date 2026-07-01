@@ -166,15 +166,43 @@ jobs:
       - name: Capture shared outputs
         id: shared
         run: |
+          set -euo pipefail
+          if ! shared_outputs="$(terraform -chdir=infra/shared output -json)"; then
+            if [ "$DEPLOY_MODE" = "plan" ]; then
+              echo "shared_outputs_available=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Shared outputs are unavailable in plan mode; downstream dependent stack plans will run after shared apply creates state outputs."
+              exit 0
+            fi
+            echo "::error::Shared Terraform outputs could not be read after shared apply."
+            exit 1
+          fi
+          if ! jq -e '
+            has("vpc_id") and
+            has("ecs_cluster_name") and
+            has("ecs_cluster_arn") and
+            has("public_subnet_ids") and
+            has("private_subnet_ids")
+          ' <<< "$shared_outputs" >/dev/null; then
+            if [ "$DEPLOY_MODE" = "plan" ]; then
+              echo "shared_outputs_available=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Shared outputs are unavailable in plan mode; downstream dependent stack plans will run after shared apply creates state outputs."
+              exit 0
+            fi
+            echo "::error::Shared Terraform outputs are unavailable after shared apply."
+            echo "$shared_outputs"
+            exit 1
+          fi
           {
-            echo "vpc_id=$(terraform -chdir=infra/shared output -raw vpc_id)"
-            echo "ecs_cluster_name=$(terraform -chdir=infra/shared output -raw ecs_cluster_name)"
-            echo "ecs_cluster_arn=$(terraform -chdir=infra/shared output -raw ecs_cluster_arn)"
-            echo "public_subnet_ids=$(terraform -chdir=infra/shared output -json public_subnet_ids | jq -c '.')"
-            echo "private_subnet_ids=$(terraform -chdir=infra/shared output -json private_subnet_ids | jq -c '.')"
+            echo "shared_outputs_available=true"
+            echo "vpc_id=$(jq -r '.vpc_id.value' <<< "$shared_outputs")"
+            echo "ecs_cluster_name=$(jq -r '.ecs_cluster_name.value' <<< "$shared_outputs")"
+            echo "ecs_cluster_arn=$(jq -r '.ecs_cluster_arn.value' <<< "$shared_outputs")"
+            echo "public_subnet_ids=$(jq -c '.public_subnet_ids.value' <<< "$shared_outputs")"
+            echo "private_subnet_ids=$(jq -c '.private_subnet_ids.value' <<< "$shared_outputs")"
           } >> "$GITHUB_OUTPUT"
 
       - name: Write backend Terraform variables
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
         env:
           SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
           SHS_DNS_ACCOUNT_ID: ${{ vars.SHS_DNS_ACCOUNT_ID }}
@@ -236,6 +264,7 @@ jobs:
             }' > "backend/infra/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
 
       - name: Terraform backend plan
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
         run: |
           terraform -chdir=backend/infra init -backend-config=backend.hcl
           terraform -chdir=backend/infra plan -out=tfplan
@@ -350,6 +379,7 @@ jobs:
           fi
 
       - name: Write frontend Terraform variables
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
         env:
           SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
           SHS_DNS_ACCOUNT_ID: ${{ vars.SHS_DNS_ACCOUNT_ID }}
@@ -381,6 +411,7 @@ jobs:
             }' > "frontend/infra/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
 
       - name: Terraform frontend plan
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
         run: |
           terraform -chdir=frontend/infra init -backend-config=backend.hcl
           terraform -chdir=frontend/infra plan -out=tfplan
