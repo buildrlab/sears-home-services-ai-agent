@@ -57,6 +57,31 @@ def test_diagnostic_workflow_escalates_to_scheduling_when_unresolved(
     assert result.tool_calls[0].name == "find_technician_matches"
 
 
+def test_diagnostic_workflow_captures_email_and_requests_upload_link(
+    db_session: Session,
+) -> None:
+    service = _service(db_session)
+    session = service.create_session(DiagnosticSessionCreate())
+    service.process_turn(
+        session_id=session.id,
+        message="My refrigerator is leaking in 75201.",
+    )
+
+    result = service.process_turn(
+        session_id=session.id,
+        message="Please send a photo upload link to Customer@Example.Test.",
+    )
+    persisted = service.get_session(session.id)
+
+    assert persisted.customer_email == "customer@example.test"
+    assert result.recommended_action == "send_upload_link"
+    assert result.tool_calls[0].name == "create_upload_link"
+    assert result.tool_calls[0].arguments == {
+        "session_id": session.id,
+        "email": "customer@example.test",
+    }
+
+
 def test_diagnostic_workflow_refuses_unsafe_troubleshooting(db_session: Session) -> None:
     service = _service(db_session)
     session = service.create_session(DiagnosticSessionCreate())

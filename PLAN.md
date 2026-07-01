@@ -73,8 +73,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 2: Scheduling Domain | Complete | Customer and appointment schema, transactional scheduling service, hold/book/cancel endpoints, active-slot uniqueness guard, confirmation persistence, API tests, concurrency tests, Ruff, local API run, and PostgreSQL 18 migration/API verification are implemented. | Keep scheduling service available as a deterministic tool for later voice/frontend flows. |
 | Phase 3: Diagnostic Agent | Complete | Diagnostic session/event schema, deterministic agent workflow, appliance/symptom/ZIP extraction, safety refusal path, tool schemas, OpenAI Responses provider abstraction, API endpoints, tests, local API run, and PostgreSQL 18 migration/API verification are implemented. | Use diagnostic service from Phase 4 Twilio voice routes. |
 | Phase 4: Twilio Voice | In Progress | Repo implementation is complete locally: signed webhook validation, Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, and runbook updates are implemented. Live Twilio tunnel call-through and ConversationRelay account enablement remain the live-completion gates. | Run backend through ngrok/cloudflared with real Twilio auth token, verify a live Gather fallback call, and confirm ConversationRelay enablement or keep Gather as fallback. |
-| Phase 5: Visual Diagnosis | Pending | Not started. | Implement upload email, S3 upload, SQS worker, and OpenAI vision analysis. |
-| Phase 6: Frontend | Pending | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
+| Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
+| Phase 6: Frontend | Next | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
 | Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
 | Phase 8: CI/CD and Remote Validation | Pending | Not started. | Run GitHub Actions deploys and remote tests against AWS. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
@@ -433,6 +433,33 @@ Exit criteria:
 - Caller can receive upload link.
 - User can upload image.
 - Analysis updates diagnostic session.
+
+Implementation status:
+
+- [x] Diagnostic flow captures caller email from messages.
+- [x] Deterministic diagnostic provider emits `create_upload_link` tool calls when the caller asks to upload an image and an email is available.
+- [x] Image upload schema added with Alembic migration `0005_image_upload_schema`.
+- [x] Upload tokens are generated with `secrets`, stored only as SHA-256 hashes, and expire.
+- [x] Upload-link email rendering and delivery supports Mailpit locally and SES in AWS.
+- [x] S3-compatible presigned POST creation supports MinIO locally and S3 in AWS.
+- [x] Upload metadata persists content type, byte size, storage bucket/key, and lifecycle status.
+- [x] Completion marks uploads `analysis_pending` and enqueues SQS-style vision jobs when configured.
+- [x] Vision worker entrypoint can process an SQS message body or a local upload ID.
+- [x] Vision analysis supports deterministic no-key local mode and OpenAI Responses image input when `OPENAI_API_KEY` is configured.
+- [x] Analysis success and failure paths update upload status and diagnostic session history.
+- [x] Backend API supports upload-link creation, token validation, presigned upload, completion, session upload listing, and local analysis trigger.
+
+Latest verification:
+
+- 2026-07-01: Verified latest stable `boto3` on PyPI as `1.43.38` and installed it into the local backend environment.
+- 2026-07-01: `python -W error -m pytest` passed with 57 tests and no warnings.
+- 2026-07-01: `ruff check .` passed for backend.
+- 2026-07-01: `pip-audit` reported no known vulnerabilities for third-party dependencies; the local editable backend package was skipped because it is not on PyPI.
+- 2026-07-01: `compileall` passed for backend app/tests plus scripts.
+- 2026-07-01: Twilio script unit tests still passed with 16 tests.
+- 2026-07-01: Alembic upgraded a PostgreSQL 18 database from empty through `0005_image_upload_schema`.
+- 2026-07-01: Local Uvicorn served Phase 5 endpoints against PostgreSQL 18, Mailpit, and MinIO.
+- 2026-07-01: Local smoke created a diagnostic session, captured refrigerator/leaking/ZIP state, sent an upload-link email to Mailpit, generated a MinIO presigned POST, uploaded a PNG through that form with HTTP 204 from MinIO, completed the upload, ran deterministic vision analysis, and confirmed an `analyze_image` event plus `analyzed` upload status in session history.
 
 ## Phase 6: Frontend
 

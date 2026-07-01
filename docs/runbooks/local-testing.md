@@ -121,6 +121,62 @@ The expected result is Gather TwiML from the first two calls and HTTP `204 No
 Content` from the status callback. Unit tests also cover signed webhooks and the
 ConversationRelay WebSocket handler.
 
+Phase 5 and later must also verify the visual diagnosis backend flow. Start
+Mailpit and MinIO with Docker Compose, create the local bucket if it does not
+exist, and keep the backend configured with the `.env.example` S3/Mailpit values:
+
+```bash
+docker compose up -d mailpit minio
+```
+
+```bash
+python - <<'PY'
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url="http://127.0.0.1:9000",
+    aws_access_key_id="minioadmin",
+    aws_secret_access_key="minioadmin",
+    region_name="us-east-1",
+)
+try:
+    s3.create_bucket(Bucket="shs-ai-agent-uploads-local")
+except ClientError as exc:
+    if exc.response.get("Error", {}).get("Code") not in {"BucketAlreadyOwnedByYou", "BucketAlreadyExists"}:
+        raise
+PY
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/upload-link \
+  -H "Content-Type: application/json" \
+  -d '{"email":"caller@example.test"}'
+```
+
+Open Mailpit at `http://127.0.0.1:8025`, confirm the upload-link email arrived,
+and copy the final path segment of the upload URL as `<token>`.
+
+```bash
+curl -X POST http://127.0.0.1:8000/uploads/<token>/presigned-post \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"fridge.png","content_type":"image/png","byte_size":512}'
+
+curl -X POST http://127.0.0.1:8000/uploads/<token>/complete \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"fridge.png","content_type":"image/png","byte_size":512}'
+
+python -m app.workers.vision --upload-id <upload_id>
+
+curl http://127.0.0.1:8000/diagnostics/sessions/1
+```
+
+The expected result is an `analyze_image` diagnostic event and an image upload
+with status `analyzed`. The backend tests use fake S3/email/queue providers, so
+this local smoke is the manual Mailpit/MinIO proof path until frontend Phase 6
+wires real browser file upload.
+
 If local port `5432` is already in use, run a temporary PostgreSQL 18 container
 on a different port and override `DATABASE_URL`:
 

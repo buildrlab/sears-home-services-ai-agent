@@ -51,6 +51,7 @@ Current verified baseline as of 2026-07-01:
 - OpenAI Python SDK: 2.44.0.
 - OpenAI default model: `gpt-5.5`, with deterministic local fallback when no API key is configured.
 - Twilio Python SDK: 9.10.9.
+- boto3: 1.43.38.
 - pytest: 9.1.1.
 - pytest-cov: 7.1.0.
 - Ruff: 0.15.20.

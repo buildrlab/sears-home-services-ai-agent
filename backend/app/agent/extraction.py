@@ -22,6 +22,8 @@ SYMPTOM_PATTERNS: dict[str, tuple[str, ...]] = {
 }
 
 ZIP_PATTERN = re.compile(r"\b(?P<zip>\d{5})(?:-\d{4})?\b")
+EMAIL_PATTERN = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+UPLOAD_INTENT_TERMS = ("photo", "image", "picture", "upload")
 
 
 def extract_appliance_type(text: str) -> str | None:
@@ -50,3 +52,15 @@ def extract_zip_code(text: str) -> str | None:
     if match is None:
         return None
     return match.group("zip")
+
+
+def extract_email(text: str) -> str | None:
+    match = EMAIL_PATTERN.search(text)
+    if match is None:
+        return None
+    return match.group(0).lower()
+
+
+def requests_image_upload(text: str) -> bool:
+    normalized = text.lower()
+    return any(term in normalized for term in UPLOAD_INTENT_TERMS)

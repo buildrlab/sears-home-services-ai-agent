@@ -40,11 +40,28 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.5
 OPENAI_REASONING_EFFORT=low
 OPENAI_VERBOSITY=low
+OPENAI_VISION_MODEL=gpt-5.5
 TWILIO_AUTH_TOKEN=
 TWILIO_VALIDATE_REQUESTS=true
 TWILIO_VOICE_MODE=gather
 TWILIO_CONVERSATION_RELAY_URL=wss://ws.shs.buildrlab.com/twilio/conversation
 PUBLIC_BASE_URL=
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+S3_UPLOAD_BUCKET=shs-ai-agent-uploads-local
+S3_ENDPOINT_URL=http://127.0.0.1:9000
+S3_PRESIGN_EXPIRES_SECONDS=900
+UPLOAD_LINK_BASE_URL=http://127.0.0.1:8000/uploads
+UPLOAD_TOKEN_TTL_MINUTES=60
+UPLOAD_MAX_BYTES=10485760
+UPLOAD_ALLOWED_CONTENT_TYPES=image/jpeg,image/png,image/webp
+EMAIL_DELIVERY_MODE=smtp
+EMAIL_FROM_ADDRESS="Sears Home Services <no-reply@shs.buildrlab.com>"
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+SQS_VISION_QUEUE_URL=
+VISION_PRESIGNED_GET_EXPIRES_SECONDS=600
 ```
 
 The `SHS_`-prefixed aliases are also supported:
@@ -57,15 +74,35 @@ SHS_OPENAI_API_KEY=
 SHS_OPENAI_MODEL=
 SHS_OPENAI_REASONING_EFFORT=
 SHS_OPENAI_VERBOSITY=
+SHS_OPENAI_VISION_MODEL=
 SHS_TWILIO_AUTH_TOKEN=
 SHS_TWILIO_VALIDATE_REQUESTS=
 SHS_TWILIO_VOICE_MODE=
 SHS_TWILIO_CONVERSATION_RELAY_URL=
 SHS_PUBLIC_BASE_URL=
+SHS_AWS_REGION=
+SHS_AWS_ACCESS_KEY_ID=
+SHS_AWS_SECRET_ACCESS_KEY=
+SHS_S3_UPLOAD_BUCKET=
+SHS_S3_ENDPOINT_URL=
+SHS_UPLOAD_LINK_BASE_URL=
+SHS_UPLOAD_TOKEN_TTL_MINUTES=
+SHS_UPLOAD_MAX_BYTES=
+SHS_UPLOAD_ALLOWED_CONTENT_TYPES=
+SHS_EMAIL_DELIVERY_MODE=
+SHS_EMAIL_FROM_ADDRESS=
+SHS_SMTP_HOST=
+SHS_SMTP_PORT=
+SHS_SQS_VISION_QUEUE_URL=
 ```
 
 When no OpenAI API key is configured, the diagnostic agent uses the deterministic
 local provider for repeatable local development and tests.
+
+When no OpenAI API key is configured, image analysis also uses the deterministic
+local provider. For local email, `EMAIL_DELIVERY_MODE=smtp` sends upload links
+to Mailpit. In AWS, set `EMAIL_DELIVERY_MODE=ses` and provide SES/DNS
+configuration through Terraform and AWS Secrets Manager.
 
 For Twilio webhooks, keep request validation enabled outside local/test
 development and set `TWILIO_AUTH_TOKEN` to the real account auth token through a
@@ -170,6 +207,30 @@ curl -i -X POST http://127.0.0.1:8000/twilio/voice/status \
   -d "CallSid=CALOCAL123&CallStatus=completed"
 ```
 
+Create an image upload link for a diagnostic session, inspect Mailpit, request a
+presigned upload target, mark the upload complete, and run local deterministic
+analysis:
+
+```bash
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/upload-link \
+  -H "Content-Type: application/json" \
+  -d '{"email":"caller@example.test"}'
+
+curl -X POST http://127.0.0.1:8000/uploads/<token>/presigned-post \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"fridge.png","content_type":"image/png","byte_size":512}'
+
+curl -X POST http://127.0.0.1:8000/uploads/<token>/complete \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"fridge.png","content_type":"image/png","byte_size":512}'
+
+python -m app.workers.vision --upload-id <upload_id>
+```
+
+The upload token is the last path segment of the emailed upload URL. The
+`presigned-post` response includes S3 form fields for browser upload; frontend
+Phase 6 will wire those fields to the actual file picker flow.
+
 ## Testing
 
 Backend implementation must include:
@@ -197,7 +258,10 @@ double-booking rejection, cancellation slot release, concurrent hold races,
 diagnostic state extraction, symptom memory, unsafe troubleshooting refusal,
 tool-call validation, the OpenAI provider contract with a fake client, signed
 Twilio webhook handling, Gather fallback turns, status callbacks, and the
-ConversationRelay WebSocket handler.
+ConversationRelay WebSocket handler. Phase 5 tests also cover upload token
+expiry, image file validation, presigned POST generation, email rendering, queue
+enqueueing, vision worker success/failure paths, and session history updates
+after image analysis.
 
 For local PostgreSQL verification, `alembic upgrade head` and `python -m app.seed`
 were run against PostgreSQL 18. PostgreSQL 19 is not used because it is not GA.
@@ -224,6 +288,14 @@ Phase 4 local smoke verification additionally exercises:
 - `POST /twilio/voice/gather`
 - `POST /twilio/voice/status`
 - `WebSocket /twilio/conversation`
+
+Phase 5 local smoke verification additionally exercises:
+
+- `POST /diagnostics/sessions/{id}/upload-link`
+- `GET /uploads/{token}`
+- `POST /uploads/{token}/presigned-post`
+- `POST /uploads/{token}/complete`
+- `python -m app.workers.vision --upload-id <upload_id>`
 
 ## Infrastructure
 

@@ -57,7 +57,7 @@ def create_appointment_hold(
         appointment = service.create_hold(request)
     except InvalidSchedulingRequestError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
     except SlotUnavailableError as exc:
@@ -77,7 +77,7 @@ def book_appointment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except InvalidSchedulingRequestError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
     except SlotUnavailableError as exc:

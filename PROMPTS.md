@@ -773,3 +773,70 @@ ConversationRelay enablement are still external live-completion gates.
   with diagnostic status `ready_to_schedule`, appliance `refrigerator`, ZIP
   `75201`, and events `voice_incoming`, `gather_response`, and
   `status_callback`.
+
+## 2026-07-01 Phase 5 Visual Diagnosis Backend
+
+### Prompt
+
+The active goal instructed the assistant to continue working toward completing
+all phases of the Sears Home Services AI Agent take-home project with tested,
+secure, cost-conscious implementation, PRs merged to `dev`, and documentation
+kept current.
+
+### Response
+
+The assistant implemented the Phase 5 backend visual diagnosis slice: email
+capture in diagnostic turns, upload-link tool-call behavior, hashed upload
+tokens, upload-link email rendering and Mailpit/SES delivery abstraction,
+S3/MinIO presigned POST generation, upload metadata persistence, SQS-style
+vision queue abstraction, a vision worker entrypoint, deterministic local
+vision analysis, OpenAI Responses image-input provider wiring, and APIs for
+creating upload links, validating tokens, requesting presigned upload targets,
+marking uploads complete, listing session uploads, and running local analysis.
+
+### Files Changed
+
+- `AGENTS.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `backend/.env.example`
+- `backend/README.md`
+- `backend/alembic/versions/0005_create_image_upload_schema.py`
+- `backend/app/agent/extraction.py`
+- `backend/app/agent/providers.py`
+- `backend/app/api/uploads.py`
+- `backend/app/config.py`
+- `backend/app/dependencies.py`
+- `backend/app/main.py`
+- `backend/app/models.py`
+- `backend/app/schemas.py`
+- `backend/app/services/email.py`
+- `backend/app/services/storage.py`
+- `backend/app/services/uploads.py`
+- `backend/app/services/vision.py`
+- `backend/app/workers/__init__.py`
+- `backend/app/workers/vision.py`
+- `backend/pyproject.toml`
+- `backend/tests/test_config.py`
+- `backend/tests/test_diagnostics_service.py`
+- `backend/tests/test_migrations.py`
+- `backend/tests/test_uploads_api.py`
+- `backend/tests/test_uploads_service.py`
+- `backend/tests/test_vision_worker.py`
+- `docs/runbooks/local-testing.md`
+
+### Verification
+
+- Verified latest stable `boto3` from PyPI as `1.43.38` and installed it.
+- `python -W error -m pytest` passed with 57 tests.
+- `ruff check .` passed for backend.
+- `pip-audit` reported no known vulnerabilities for third-party dependencies;
+  the local editable backend package was skipped because it is not on PyPI.
+- `compileall` passed for backend app/tests plus scripts.
+- Twilio script unit tests still passed with 16 tests.
+- Alembic migrated PostgreSQL 18 from empty through `0005_image_upload_schema`.
+- Local Uvicorn smoke against PostgreSQL 18, Mailpit, and MinIO verified health,
+  diagnostic session creation, upload-link email delivery, presigned MinIO POST,
+  actual PNG upload through the presigned form, upload completion, deterministic
+  vision analysis, `analyze_image` diagnostic event persistence, and `analyzed`
+  image upload status.

@@ -6,7 +6,12 @@ from datetime import datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models import AppointmentStatus, DiagnosticEventRole, DiagnosticSessionStatus
+from app.models import (
+    AppointmentStatus,
+    DiagnosticEventRole,
+    DiagnosticSessionStatus,
+    ImageUploadStatus,
+)
 
 
 class HealthResponse(BaseModel):
@@ -164,3 +169,56 @@ class DiagnosticTurnResponse(BaseModel):
     session: DiagnosticSessionRead
     assistant_message: str
     tool_calls: list[AgentToolCallRead]
+
+
+class UploadLinkRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class UploadLinkResponse(BaseModel):
+    id: int
+    diagnostic_session_id: int
+    upload_url: str
+    expires_at: datetime
+    email_sent: bool
+    status: ImageUploadStatus
+
+
+class UploadMetadataRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(min_length=3, max_length=80)
+    byte_size: int = Field(gt=0)
+
+
+class PresignedUploadResponse(BaseModel):
+    upload_id: int
+    method: str
+    url: str
+    fields: dict[str, str]
+    max_byte_size: int
+    expires_at: datetime
+    storage_key: str
+
+
+class ImageUploadRead(BaseModel):
+    id: int
+    diagnostic_session_id: int
+    storage_bucket: str
+    storage_key: str
+    original_filename: str | None
+    content_type: str | None
+    byte_size: int | None
+    status: ImageUploadStatus
+    expires_at: datetime
+    uploaded_at: datetime | None
+    analysis_started_at: datetime | None
+    analyzed_at: datetime | None
+    analysis_summary: str | None
+    analysis_result: dict[str, object] | None
+    failure_reason: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ImageUploadListResponse(BaseModel):
+    uploads: list[ImageUploadRead]

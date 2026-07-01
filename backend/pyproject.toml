@@ -5,6 +5,7 @@ description = "Backend for the Sears Home Services voice AI appliance diagnostic
 requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.18.5",
+  "boto3>=1.43.38",
   "fastapi>=0.138.2",
   "openai>=2.44.0",
   "psycopg[binary]>=3.3.4",

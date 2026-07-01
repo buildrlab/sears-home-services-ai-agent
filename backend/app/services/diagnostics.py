@@ -5,7 +5,12 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.agent.extraction import extract_appliance_type, extract_symptoms, extract_zip_code
+from app.agent.extraction import (
+    extract_appliance_type,
+    extract_email,
+    extract_symptoms,
+    extract_zip_code,
+)
 from app.agent.providers import (
     AgentTurnResult,
     DiagnosticContext,
@@ -113,6 +118,9 @@ class DiagnosticService:
 
         if diagnostic_session.zip_code is None:
             diagnostic_session.zip_code = extract_zip_code(message)
+
+        if diagnostic_session.customer_email is None:
+            diagnostic_session.customer_email = extract_email(message)
 
     def _apply_provider_result(
         self,

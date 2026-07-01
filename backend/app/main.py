@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.diagnostics import router as diagnostics_router
 from app.api.scheduling import router as scheduling_router
 from app.api.twilio_voice import router as twilio_voice_router
+from app.api.uploads import router as uploads_router
 from app.config import Settings, get_settings
 from app.schemas import HealthResponse
 
@@ -31,6 +32,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(diagnostics_router)
     app.include_router(scheduling_router)
     app.include_router(twilio_voice_router)
+    app.include_router(uploads_router)
     return app
 
 
