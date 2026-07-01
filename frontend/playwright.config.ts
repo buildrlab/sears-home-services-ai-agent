@@ -19,9 +19,9 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: `corepack pnpm dev --port ${String(port)}`,
+        command: `corepack pnpm dev --port ${String(port)} --strictPort`,
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: process.env.PW_REUSE_SERVER === "1",
         timeout: 120_000,
       },
   projects: [

@@ -1572,6 +1572,70 @@ calling `terraform output`.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
 
+## 2026-07-01 Expanded Automated Flow Coverage
+
+### Prompt
+
+The user asked to ensure all code is fully unit tested and Playwright tested
+where possible, asked whether all flows the Twilio number will interact with can
+be tested automatically by calling the code directly, and confirmed the AWS
+profile for the account is `sears`.
+
+### Response
+
+The assistant expanded direct Twilio route tests to call the same inbound,
+Gather, status-callback, and ConversationRelay code paths that the Twilio number
+uses. These tests use Twilio-compatible signed form payloads and WebSocket
+headers, so they validate the call flow without placing a PSTN call.
+
+The assistant also expanded Playwright coverage from two happy-path specs to six
+browser specs covering dashboard render, dashboard create/diagnostic/upload-link
+and analyze actions, upload success, expired-token handling, unsupported file
+validation, and storage upload failures. The Playwright config now starts Vite
+with `--strictPort` and avoids silently reusing an unrelated local server unless
+`PW_REUSE_SERVER=1` is explicitly set.
+
+### Files Changed
+
+- `backend/tests/test_twilio_voice.py`
+- `frontend/playwright.config.ts`
+- `frontend/tests/e2e/helpers/api.ts`
+- `frontend/tests/e2e/helpers/console.ts`
+- `frontend/tests/e2e/dashboard.spec.ts`
+- `frontend/tests/e2e/upload.spec.ts`
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `backend/.venv/bin/python -W error -m pytest tests/test_twilio_voice.py`
+  passed from `backend` with 12 tests.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH" corepack pnpm typecheck`
+  passed from `frontend`.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH" corepack pnpm lint` passed from
+  `frontend`.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH" corepack pnpm test` passed from
+  `frontend` with 7 tests.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH" PW_PORT=5198 corepack pnpm
+  test:e2e` passed from `frontend` with 6 Chromium tests.
+- Backend `.venv/bin/python -W error -m pytest` passed with 68 tests.
+- Backend `.venv/bin/ruff check .` passed.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 65 tests.
+- `backend/.venv/bin/ruff check scripts tests` passed.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH" corepack pnpm build` passed
+  from `frontend`.
+- `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
+  passed.
+- `AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py --json`
+  passed against the deployed API, including production-signed Twilio voice
+  booking, SES upload-link acceptance, S3 upload, OpenAI image analysis, and
+  session-history verification.
+- `PATH="/opt/homebrew/opt/node@26/bin:$PATH"
+  PLAYWRIGHT_BASE_URL=https://shs.buildrlab.com corepack pnpm test:e2e`
+  passed with 6 Chromium tests against the deployed frontend.
+
 ## 2026-07-01 Final Original PDF No-Gaps Closure
 
 ### Prompt
