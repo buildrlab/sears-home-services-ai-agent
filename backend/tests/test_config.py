@@ -13,6 +13,11 @@ def test_settings_use_secure_local_defaults() -> None:
     assert settings.openai_model == "gpt-5.5"
     assert settings.openai_reasoning_effort == "low"
     assert settings.openai_verbosity == "low"
+    assert settings.twilio_auth_token is None
+    assert settings.twilio_validate_requests is True
+    assert settings.twilio_voice_mode == "gather"
+    assert settings.twilio_conversation_relay_url == "wss://ws.shs.buildrlab.com/twilio/conversation"
+    assert settings.public_base_url is None
 
 
 def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
@@ -23,6 +28,11 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
     monkeypatch.setenv("SHS_OPENAI_MODEL", "gpt-test")
     monkeypatch.setenv("SHS_OPENAI_REASONING_EFFORT", "medium")
     monkeypatch.setenv("SHS_OPENAI_VERBOSITY", "medium")
+    monkeypatch.setenv("SHS_TWILIO_AUTH_TOKEN", "twilio-token")
+    monkeypatch.setenv("SHS_TWILIO_VALIDATE_REQUESTS", "false")
+    monkeypatch.setenv("SHS_TWILIO_VOICE_MODE", "conversationrelay")
+    monkeypatch.setenv("SHS_TWILIO_CONVERSATION_RELAY_URL", "wss://ws.example.test/relay")
+    monkeypatch.setenv("SHS_PUBLIC_BASE_URL", "https://api.example.test")
 
     settings = Settings()
 
@@ -33,3 +43,8 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
     assert settings.openai_model == "gpt-test"
     assert settings.openai_reasoning_effort == "medium"
     assert settings.openai_verbosity == "medium"
+    assert settings.twilio_auth_token == "twilio-token"  # noqa: S105
+    assert settings.twilio_validate_requests is False
+    assert settings.twilio_voice_mode == "conversationrelay"
+    assert settings.twilio_conversation_relay_url == "wss://ws.example.test/relay"
+    assert settings.public_base_url == "https://api.example.test"
