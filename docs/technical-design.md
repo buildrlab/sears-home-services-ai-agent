@@ -72,9 +72,11 @@ The backend supports:
 - `POST /twilio/voice/status`
 - `WebSocket /twilio/conversation`
 
-Gather is the guaranteed fallback path. ConversationRelay is the preferred
-deployed voice path once the Twilio AI/ML addendum and account feature gates are
-confirmed.
+Gather is the guaranteed deployed reviewer path. ConversationRelay is
+implemented and remains the preferred upgrade once the Twilio AI/ML addendum and
+account feature gates are confirmed. Deployed validation posts production-signed
+Twilio webhook requests and confirms the Gather flow, status callback, and call
+session path.
 
 ## Scheduling Flow
 
@@ -104,6 +106,9 @@ expire. The upload flow is:
 5. Browser uploads directly to S3/MinIO.
 6. Backend marks upload completion and enqueues or locally runs analysis.
 7. Vision provider records an analysis event on the diagnostic session.
+
+The final AWS smoke verifies this flow end to end with SES, direct S3 upload,
+OpenAI image analysis, and the diagnostic session history.
 
 ## Frontend
 

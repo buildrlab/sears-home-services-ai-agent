@@ -262,6 +262,19 @@ Call the configured Twilio number and verify:
 - Appliance and symptom collection works.
 - Scheduling can book an appointment.
 
+The final automated deployed check validates the signed webhook path without
+disabling production signature validation:
+
+```bash
+AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py \
+  --api-base-url https://api.shs.buildrlab.com \
+  --email-to no-reply@shs.buildrlab.com
+```
+
+This posts production-valid Twilio signatures to the deployed incoming, Gather,
+and status callback routes. It complements, but does not replace, a manual
+carrier call when a reviewer wants to hear the phone flow.
+
 ## Tier 3 Verification
 
 During or after a call:
@@ -275,6 +288,10 @@ During or after a call:
 - Confirm image metadata is stored.
 - Confirm OpenAI vision analysis runs.
 - Confirm the diagnostic session shows the visual analysis result.
+
+While SES is in sandbox, use a verified-domain recipient such as
+`no-reply@shs.buildrlab.com` for this check. External recipients require SES
+production access approval or individual recipient verification.
 
 ## AWS Log Review
 
