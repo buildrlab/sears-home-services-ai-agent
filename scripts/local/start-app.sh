@@ -51,7 +51,7 @@ if [ "${WITH_BUILD}" -eq 1 ]; then
   compose build backend
 else
   compose up -d postgres mailpit minio
-done
+fi
 
 compose run --rm --entrypoint python backend -c '
 import time
