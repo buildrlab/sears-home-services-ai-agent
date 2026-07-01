@@ -22,6 +22,10 @@ def _load_script_module(module_name: str, script_name: str) -> Any:
 
 
 LOCAL_SMOKE = _load_script_module("reviewer_local_smoke_script", "local_smoke.py")
+FINAL_READINESS = _load_script_module(
+    "reviewer_final_readiness_script",
+    "final_readiness.py",
+)
 
 
 class FakeReviewerClient:
@@ -199,6 +203,58 @@ class ReviewerLocalSmokeTests(unittest.TestCase):
         self.assertIn("tier3_image_analysis", check_names)
         self.assertIn("frontend_shell", check_names)
         self.assertTrue(client.object_uploaded)
+
+
+class ReviewerFinalReadinessTests(unittest.TestCase):
+    def test_parse_preflight_output_reports_success(self) -> None:
+        result = FINAL_READINESS.CommandResult(
+            args=("deploy_preflight.py", "--json"),
+            returncode=0,
+            stdout='{"ok": true, "checks": [{"name": "aws_identity", "ok": true}]}',
+            stderr="",
+        )
+
+        ok, detail = FINAL_READINESS.parse_preflight_output(result)
+
+        self.assertTrue(ok)
+        self.assertEqual(detail, "deploy preflight passed")
+
+    def test_parse_preflight_output_reports_failed_checks(self) -> None:
+        result = FINAL_READINESS.CommandResult(
+            args=("deploy_preflight.py", "--json"),
+            returncode=1,
+            stdout=(
+                '{"ok": false, "checks": ['
+                '{"name": "github_cli_auth", "ok": false},'
+                '{"name": "aws_identity", "ok": false}'
+                "]}"
+            ),
+            stderr="",
+        )
+
+        ok, detail = FINAL_READINESS.parse_preflight_output(result)
+
+        self.assertFalse(ok)
+        self.assertIn("github_cli_auth", detail)
+        self.assertIn("aws_identity", detail)
+
+    def test_build_checks_fails_closed_when_live_preflight_fails(self) -> None:
+        def runner(args):
+            return FINAL_READINESS.CommandResult(
+                args=tuple(args),
+                returncode=1,
+                stdout='{"ok": false, "checks": [{"name": "aws_identity", "ok": false}]}',
+                stderr="",
+            )
+
+        checks = FINAL_READINESS.build_checks(REPO_ROOT, runner=runner)
+
+        by_name = {check.name: check for check in checks}
+        self.assertTrue(by_name["required_project_files"].ok)
+        self.assertTrue(by_name["required_adrs"].ok)
+        self.assertTrue(by_name["plan_phase_tracking"].ok)
+        self.assertTrue(by_name["prompt_log"].ok)
+        self.assertFalse(by_name["live_deploy_preflight"].ok)
 
 
 if __name__ == "__main__":
