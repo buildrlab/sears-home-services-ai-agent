@@ -23,6 +23,11 @@ git status --short --branch
 
 ## 2. Local Automated Checks
 
+- [x] Backend pytest coverage, backend Ruff, root script unit tests, and scripts/tests Ruff passed.
+- [x] Frontend lint, typecheck, unit tests, production build, and local Playwright passed.
+- [x] Backend and frontend dependency audits reported no known vulnerabilities.
+- [x] Workflow lint, Docker Compose config checks, Terraform validation, and diff whitespace check passed.
+
 Run these from the repository root unless noted.
 
 ```bash

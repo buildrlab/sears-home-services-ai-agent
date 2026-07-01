@@ -7,9 +7,12 @@ from sqlalchemy import create_engine, inspect
 
 from alembic import command
 
+_BACKEND_DIR = Path(__file__).parent.parent
+
 
 def test_alembic_upgrade_from_empty_database(sqlite_database_url: str) -> None:
-    config = Config("alembic.ini")
+    config = Config(str(_BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
     config.set_main_option("sqlalchemy.url", sqlite_database_url)
 
     command.upgrade(config, "head")
@@ -36,30 +39,30 @@ def test_alembic_upgrade_from_empty_database(sqlite_database_url: str) -> None:
 
 
 def test_initial_migration_is_present() -> None:
-    migration_path = Path("alembic/versions/0001_create_technician_reference_schema.py")
+    migration_path = _BACKEND_DIR / "alembic/versions/0001_create_technician_reference_schema.py"
 
     assert migration_path.is_file()
 
 
 def test_appointment_migration_is_present() -> None:
-    migration_path = Path("alembic/versions/0002_create_customer_appointment_schema.py")
+    migration_path = _BACKEND_DIR / "alembic/versions/0002_create_customer_appointment_schema.py"
 
     assert migration_path.is_file()
 
 
 def test_diagnostic_migration_is_present() -> None:
-    migration_path = Path("alembic/versions/0003_create_diagnostic_session_schema.py")
+    migration_path = _BACKEND_DIR / "alembic/versions/0003_create_diagnostic_session_schema.py"
 
     assert migration_path.is_file()
 
 
 def test_call_session_migration_is_present() -> None:
-    migration_path = Path("alembic/versions/0004_create_call_session_schema.py")
+    migration_path = _BACKEND_DIR / "alembic/versions/0004_create_call_session_schema.py"
 
     assert migration_path.is_file()
 
 
 def test_image_upload_migration_is_present() -> None:
-    migration_path = Path("alembic/versions/0005_create_image_upload_schema.py")
+    migration_path = _BACKEND_DIR / "alembic/versions/0005_create_image_upload_schema.py"
 
     assert migration_path.is_file()
