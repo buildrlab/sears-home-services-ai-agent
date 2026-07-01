@@ -8,6 +8,29 @@ directly to either branch during implementation work.
 As of 2026-07-01, `dev` has no branch protection enabled. Apply protection after
 the team confirms the exact required-check policy.
 
+## Apply With Script
+
+Dry run the recommended `dev` policy:
+
+```bash
+python3.14 scripts/github/configure_branch_protection.py
+```
+
+Apply it after `gh auth login` succeeds:
+
+```bash
+python3.14 scripts/github/configure_branch_protection.py --apply
+```
+
+The script requires the always-on Security CI jobs by default:
+
+- `secret-scan`
+- `dependency-audit`
+
+Do not require path-filtered backend, frontend, Terraform, or scripts jobs until
+an always-run aggregate check exists. Override the required checks with repeated
+`--required-check` flags only after the policy changes.
+
 ## Recommended `dev` Protection
 
 - Require pull request before merging.

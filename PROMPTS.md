@@ -491,6 +491,40 @@ before mutating GitHub state and redacts secret values in planned output.
   proved secret values are rendered as `<stdin:redacted>`.
 - `git diff --check`
 
+## 2026-07-01 GitHub Branch Protection Script
+
+### Prompt
+
+The active goal still had branch protection as a live Phase 8 item, but local
+GitHub CLI auth was unavailable.
+
+### Response
+
+The assistant added a dry-run-capable branch protection script for `dev`.
+The script applies the conservative policy from the runbook after `gh auth
+login` succeeds: require pull requests, conversation resolution, up-to-date
+branches, block force pushes/deletions, and require only always-on Security CI
+jobs by default. Path-filtered backend, frontend, Terraform, and scripts checks
+remain excluded until an always-run aggregate required check exists.
+
+### Files Changed
+
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/runbooks/github-branch-protection.md`
+- `scripts/github/README.md`
+- `scripts/github/configure_branch_protection.py`
+- `tests/test_github_scripts.py`
+
+### Verification
+
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 37 tests.
+- `backend/.venv/bin/ruff check scripts tests`
+- `python3.14 scripts/github/configure_branch_protection.py`
+- `git diff --check`
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

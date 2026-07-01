@@ -39,3 +39,29 @@ python3.14 scripts/github/configure_deploy.py \
 The script uses environment-scoped GitHub variables/secrets for `prod` by
 default. It never prints secret values or passes them as command-line
 arguments; apply mode sends each secret to `gh secret set` through stdin.
+
+## `configure_branch_protection.py`
+
+Creates or updates the conservative `dev` branch protection policy.
+
+Dry run:
+
+```bash
+python3.14 scripts/github/configure_branch_protection.py
+```
+
+Apply protection:
+
+```bash
+python3.14 scripts/github/configure_branch_protection.py --apply
+```
+
+By default, the script requires the always-on Security CI jobs:
+
+- `secret-scan`
+- `dependency-audit`
+
+It does not require path-filtered backend, frontend, Terraform, or scripts jobs
+until an always-run aggregate required check exists. Use repeated
+`--required-check` flags to override the required check list after the policy
+changes.
