@@ -622,6 +622,35 @@ of treating repo-side work as final submission readiness.
   missing AWS credentials through deploy preflight.
 - `git diff --check`
 
+## 2026-07-01 README Final Readiness Sync
+
+### Prompt
+
+The active goal continued after the final readiness audit script merged. The
+remaining work required keeping user-facing documentation aligned with the new
+audit script and the current live GitHub gate status.
+
+### Response
+
+The assistant updated `README.md` to mention
+`scripts/reviewer/final_readiness.py` alongside the reviewer smoke flow and
+clarified `docs/submission-hardening.md` known limitations to reference
+environment-scoped GitHub deployment configuration and the available GitHub
+configuration scripts.
+
+### Files Changed
+
+- `README.md`
+- `PROMPTS.md`
+- `docs/submission-hardening.md`
+
+### Verification
+
+- `git diff --check`
+- `python3.14 scripts/reviewer/final_readiness.py --json` exited nonzero as
+  expected and reported the current live blockers: invalid local `gh` auth and
+  missing AWS credentials through deploy preflight.
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

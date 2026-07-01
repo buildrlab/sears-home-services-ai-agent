@@ -73,9 +73,12 @@ The reviewer smoke script covers:
 
 - AWS live deployment has not run from this Codex session because local AWS
   credentials are unavailable.
-- GitHub deployment environment `prod`, repository variables, and deployment
-  secrets are not configured yet.
+- GitHub deployment environment `prod`, environment-scoped variables, and
+  environment-scoped secrets are not configured yet. Use
+  `scripts/github/configure_deploy.py` after `gh auth login` to apply them.
 - `dev` branch protection recommendations are documented but not applied.
+  `scripts/github/configure_branch_protection.py` is available to apply the
+  conservative policy after `gh auth login`.
 - ConversationRelay account enablement remains a provider-side Twilio gate until
   confirmed in the Twilio account.
 - Gather remains the reliable fallback path if ConversationRelay is unavailable.
