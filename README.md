@@ -232,6 +232,22 @@ python3.14 scripts/reviewer/local_smoke.py \
 Add `--frontend-base-url http://127.0.0.1:5173` when the Vite frontend is also
 running. See [Reviewer Scripts](scripts/reviewer/README.md).
 
+Automated Twilio flow tests do not need to place a real phone call. They call
+the same backend routes Twilio calls, using Twilio-compatible signed form
+payloads and WebSocket headers:
+
+```bash
+cd backend
+.venv/bin/python -W error -m pytest tests/test_twilio_voice.py
+```
+
+That suite covers incoming call setup, missing/invalid signatures, Gather
+diagnostics, no-slot retry prompts, appointment proposal and booking,
+non-confirming availability changes, status callbacks, and ConversationRelay
+WebSocket handling. The live AWS smoke uses `AWS_PROFILE=sears` to read the
+deployed Twilio auth token from Secrets Manager and posts production-signed
+webhook requests to the deployed API.
+
 Before final submission, run the read-only readiness audit:
 
 ```bash

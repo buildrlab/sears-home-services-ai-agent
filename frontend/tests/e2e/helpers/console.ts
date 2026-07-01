@@ -1,12 +1,19 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
-export function trackConsoleErrors(page: Page): string[] {
+interface ConsoleTrackerOptions {
+  ignoredErrors?: RegExp[];
+}
+
+export function trackConsoleErrors(page: Page, options: ConsoleTrackerOptions = {}): string[] {
   const errors: string[] = [];
 
   page.on("console", (message) => {
     if (message.type() === "error") {
-      errors.push(message.text());
+      const text = message.text();
+      if (!options.ignoredErrors?.some((pattern) => pattern.test(text))) {
+        errors.push(text);
+      }
     }
   });
   page.on("pageerror", (error) => {

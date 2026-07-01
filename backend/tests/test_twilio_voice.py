@@ -115,6 +115,21 @@ def test_incoming_voice_rejects_missing_signature_when_validation_enabled(
     assert db_session.scalars(select(CallSession)).all() == []
 
 
+def test_incoming_voice_rejects_invalid_signature_when_validation_enabled(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+
+    response = client.post(
+        "/twilio/voice/incoming",
+        data=_twilio_params(),
+        headers={"X-Twilio-Signature": "invalid"},
+    )
+
+    assert response.status_code == 403
+    assert db_session.scalars(select(CallSession)).all() == []
+
+
 def test_incoming_voice_can_return_conversation_relay_twiml(db_session: Session) -> None:
     client = _client(db_session, voice_mode="conversationrelay")
     params = _twilio_params()
@@ -216,6 +231,91 @@ def test_gather_response_proposes_and_books_appointment_by_voice(db_session: Ses
     assert "book_appointment" in tool_names
 
 
+def test_gather_response_prompts_for_alternate_availability_when_no_slot_matches(
+    db_session: Session,
+) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CANOSLOT")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    diagnostic_params = incoming_params | {
+        "SpeechResult": "My refrigerator is not cooling in 75201."
+    }
+    client.post(
+        "/twilio/voice/gather",
+        data=diagnostic_params,
+        headers=_signed_headers("/twilio/voice/gather", diagnostic_params),
+    )
+    availability_params = incoming_params | {"SpeechResult": "Monday morning works."}
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=availability_params,
+        headers=_signed_headers("/twilio/voice/gather", availability_params),
+    )
+
+    assert response.status_code == 200
+    assert "I could not find an available matching slot" in response.text
+    assert "Would a different morning or afternoon work" in response.text
+    assert db_session.scalars(select(Appointment)).all() == []
+
+
+def test_gather_response_alternate_availability_keeps_existing_proposal_held(
+    db_session: Session,
+) -> None:
+    seed_reference_data(db_session)
+    db_session.commit()
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAALTERNATE")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    client.post(
+        "/twilio/voice/gather",
+        data=incoming_params | {"SpeechResult": "My refrigerator is not cooling in 75201."},
+        headers=_signed_headers(
+            "/twilio/voice/gather",
+            incoming_params | {"SpeechResult": "My refrigerator is not cooling in 75201."},
+        ),
+    )
+    client.post(
+        "/twilio/voice/gather",
+        data=incoming_params | {"SpeechResult": "Monday morning works."},
+        headers=_signed_headers(
+            "/twilio/voice/gather",
+            incoming_params | {"SpeechResult": "Monday morning works."},
+        ),
+    )
+
+    response = client.post(
+        "/twilio/voice/gather",
+        data=incoming_params | {"SpeechResult": "No, another afternoon."},
+        headers=_signed_headers(
+            "/twilio/voice/gather",
+            incoming_params | {"SpeechResult": "No, another afternoon."},
+        ),
+    )
+
+    assert response.status_code == 200
+    appointments = db_session.scalars(select(Appointment)).all()
+    assert appointments
+    assert {appointment.status for appointment in appointments} == {AppointmentStatus.HELD.value}
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.diagnostic_session is not None
+    tool_names = [
+        event.tool_name
+        for event in call_session.diagnostic_session.events
+        if event.tool_name is not None
+    ]
+    assert tool_names.count("propose_appointment") >= 1
+    assert "book_appointment" not in tool_names
+
+
 def test_status_callback_marks_call_completed(db_session: Session) -> None:
     client = _client(db_session)
     incoming_params = _twilio_params()
@@ -239,6 +339,27 @@ def test_status_callback_marks_call_completed(db_session: Session) -> None:
         "voice_incoming",
         "status_callback",
     ]
+
+
+def test_status_callback_marks_failed_call_statuses(db_session: Session) -> None:
+    client = _client(db_session)
+    incoming_params = _twilio_params(call_sid="CAFAILED")
+    client.post(
+        "/twilio/voice/incoming",
+        data=incoming_params,
+        headers=_signed_headers("/twilio/voice/incoming", incoming_params),
+    )
+    status_params = incoming_params | {"CallStatus": "failed"}
+
+    response = client.post(
+        "/twilio/voice/status",
+        data=status_params,
+        headers=_signed_headers("/twilio/voice/status", status_params),
+    )
+
+    assert response.status_code == 204
+    call_session = db_session.scalars(select(CallSession)).one()
+    assert call_session.status == "failed"
 
 
 def test_conversation_relay_websocket_creates_session_and_returns_text(
