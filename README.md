@@ -2,7 +2,7 @@
 
 Voice AI home appliance diagnostic agent for the Sears Home Services AI Engineer take-home project.
 
-The system will support:
+The system supports:
 
 - Inbound phone calls through Twilio.
 - Natural diagnostic conversation for appliance issues.
@@ -40,7 +40,7 @@ scripts/        Twilio automation, Terraform helpers, and AWS verification scrip
 
 ## Local Development
 
-The local stack will run with Docker Compose and include:
+The local stack runs with Docker Compose and includes:
 
 - Backend API.
 - Frontend app.

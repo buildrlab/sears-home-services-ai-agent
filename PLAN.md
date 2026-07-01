@@ -648,6 +648,10 @@ Current GitHub configuration check:
 - 2026-07-01: Final live smoke passed against `https://api.shs.buildrlab.com`: health, diagnostic session, Tier 1 diagnostic state, production-signed Twilio webhooks, SES upload-link send, S3 presigned upload, OpenAI image analysis, and session history event verification.
 - 2026-07-01: AWS health review confirmed ECS API and worker services active with desired/running count 1 and completed rollouts, SQS vision DLQ empty, no recent API/worker/migration CloudWatch errors, and SES sending enabled with healthy enforcement.
 - 2026-07-01: Final live smoke now includes voice appointment proposal and booking confirmation checks. SES remains treated as complete; sandbox mode and the production-access request are operational account status, not an implementation gap.
+- 2026-07-01: PR #32 (`codex/close-pdf-requirement-gaps`) merged into `dev` at `de97ab9`, adding the final original-PDF gap closures for safe troubleshooting, voice availability capture, slot proposal, voice booking confirmation, and deployment-time seed data.
+- 2026-07-01: AWS Deploy workflow run `28514347286` succeeded from `dev` at `de97ab9` with `mode=apply`, `bootstrap_backend=false`, `api_desired_count=1`, and `worker_desired_count=1`.
+- 2026-07-01: Final live smoke passed against `https://api.shs.buildrlab.com` after run `28514347286`, including health, diagnostic session creation, Tier 1 diagnostic state, production-signed Twilio webhook handling, voice appointment proposal and booking confirmation, SES upload-link acceptance, S3 upload, OpenAI image analysis, and session-history verification.
+- 2026-07-01: Deployed Playwright passed against `https://shs.buildrlab.com` after run `28514347286` using Node 26.4.0 and pnpm 11.9.0, with the dashboard and upload route rendering without console-error failures.
 - 2026-07-01: PRs #16, #17, and #18 added dry-run/apply scripts for GitHub environment configuration and branch protection, plus read-only preflight validation for environment-scoped GitHub secrets/variables and the conservative `dev` branch protection policy once `gh` auth is restored.
 
 Latest local verification:
@@ -732,6 +736,7 @@ Latest local verification:
 - 2026-07-01: Final live smoke passed against AWS with health, diagnostic state, production-signed Twilio webhooks, SES email acceptance, S3 object upload, OpenAI image analysis, and `analyze_image` session-history verification.
 - 2026-07-01: Current branch added original-PDF gap closure: deterministic troubleshooting guidance, voice availability capture, appointment proposal, voice booking confirmation, AWS migration-time seeding, and local/final smoke coverage for voice booking.
 - 2026-07-01: Final readiness audit passed after deploy preflight, branch protection, required docs, ADR coverage, prompt log, and required project files were verified.
+- 2026-07-01: Final readiness audit passed after PR #32 merged and AWS Deploy run `28514347286` completed. The deployed final live smoke passed with voice booking, SES acceptance, S3 upload, OpenAI image analysis, and session history checks. Deployed Playwright passed against `https://shs.buildrlab.com` with 2 Chromium tests and no console-error failures.
 
 Exit criteria:
 

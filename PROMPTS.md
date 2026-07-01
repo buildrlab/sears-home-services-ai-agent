@@ -1572,6 +1572,76 @@ calling `terraform output`.
 - Ruby YAML parsing passed for `.github/workflows/aws-deploy.yml`.
 - `git diff --check` passed.
 
+## 2026-07-01 Final Original PDF No-Gaps Closure
+
+### Prompt
+
+The user asked to add all remaining original PDF requirements with no gaps,
+treat SES as complete despite sandbox mode and a pending production-access
+request, fully implement the system, and defer the real phone call until after
+all non-PSTN implementation and validation were complete.
+
+### Response
+
+The assistant closed the remaining original PDF gaps by adding safe
+troubleshooting guidance before scheduling, collecting caller availability in
+the voice flow, proposing a matching technician slot, booking after verbal
+confirmation, and reading back the confirmation code. The AWS migration task now
+runs Alembic and then the idempotent seed command so deployed scheduling always
+has representative technician data.
+
+The assistant merged PR #32 into `dev`, deployed commit `de97ab9` through AWS
+Deploy run `28514347286`, and ran final live validation against the deployed
+environment. SES was treated as implementation-complete; sandbox mode and the
+production-access request are documented as provider/account status.
+
+### Files Changed
+
+- `backend/app/agent/providers.py`
+- `backend/app/services/scheduling.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/infra/main.tf`
+- `backend/tests/test_diagnostics_service.py`
+- `backend/tests/test_scheduling_service.py`
+- `backend/tests/test_twilio_voice.py`
+- `tests/test_reviewer_scripts.py`
+- `scripts/reviewer/local_smoke.py`
+- `scripts/aws/final_live_smoke.py`
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docs/technical-design.md`
+- `docs/submission-hardening.md`
+- `docs/runbooks/aws-testing.md`
+- `docs/adr/0006-run-python-backend-on-fargate-with-separate-migration-task.md`
+- `backend/infra/README.md`
+- `scripts/aws/README.md`
+- `scripts/reviewer/README.md`
+
+### Verification
+
+- Backend `.venv/bin/python -W error -m pytest` passed with 64 tests.
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests` passed
+  with 65 tests.
+- `backend/.venv/bin/ruff check backend scripts tests` passed.
+- `docker compose config --quiet` passed.
+- `actionlint .github/workflows/*.yml` passed.
+- Ruby YAML parsing passed for all GitHub workflow files.
+- `scripts/terraform/validate.sh` passed for all Terraform stacks after
+  provider-registry network access was allowed.
+- `python3.14 scripts/aws/final_live_smoke.py --help` passed.
+- `git diff --check` passed.
+- PR #32 checks passed and PR #32 merged into `dev`.
+- AWS Deploy run `28514347286` passed from `dev`.
+- `AWS_PROFILE=sears python3.14 scripts/aws/final_live_smoke.py --json`
+  passed against `https://api.shs.buildrlab.com`, including production-signed
+  Twilio voice booking, SES upload-link acceptance, S3 upload, OpenAI image
+  analysis, and session-history verification.
+- `AWS_PROFILE=sears python3.14 scripts/reviewer/final_readiness.py --json`
+  passed.
+- `PLAYWRIGHT_BASE_URL=https://shs.buildrlab.com corepack pnpm test:e2e`
+  passed with 2 Chromium tests using Node 26.4.0 and pnpm 11.9.0.
+
 ## 2026-07-01 Final Live Validation and Completion
 
 ### Prompt
