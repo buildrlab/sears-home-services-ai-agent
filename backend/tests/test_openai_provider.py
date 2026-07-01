@@ -190,17 +190,17 @@ def test_openai_provider_uses_responses_api_contract() -> None:
     }
 
 
-def test_openai_provider_defaults_message_when_response_has_no_text_or_tools() -> None:
+def test_openai_provider_uses_stateful_fallback_when_response_has_no_text() -> None:
     client = FakeClient(output_text="", output=[{"type": "message", "content": "ignored"}])
     settings = Settings(openai_api_key="test", openai_model="gpt-test")
     provider = OpenAIResponsesProvider(settings, client=client)
 
     result = provider.generate(DiagnosticContext(session=_session(), user_message="Hello."))
 
-    assert result.status == DiagnosticSessionStatus.ACTIVE
-    assert result.recommended_action is None
-    assert result.tool_calls == []
-    assert result.assistant_message == "I can help diagnose the issue and schedule service."
+    assert result.status == DiagnosticSessionStatus.READY_TO_SCHEDULE
+    assert result.recommended_action == "schedule_technician"
+    assert result.tool_calls[0].name == "find_technician_matches"
+    assert "Do you prefer a morning or afternoon appointment" in result.assistant_message
 
 
 def test_openai_provider_reads_object_style_function_call_items() -> None:

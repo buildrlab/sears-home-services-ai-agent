@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl
@@ -46,6 +47,13 @@ AVAILABILITY_TERMS = (
     "saturday",
     "sunday",
 )
+MAX_EMPTY_SPEECH_RETRIES = 2
+
+
+@dataclass(frozen=True)
+class VoicePrompt:
+    prompt: str
+    continue_gather: bool = True
 
 
 class TwilioVoiceService:
@@ -162,6 +170,25 @@ class TwilioVoiceService:
                 return proposal
         return result.assistant_message
 
+    def process_empty_speech(self, call_session: CallSession) -> VoicePrompt:
+        empty_attempts = self._empty_speech_attempts(call_session)
+        if empty_attempts > MAX_EMPTY_SPEECH_RETRIES:
+            return VoicePrompt(
+                prompt=(
+                    "I still could not hear a response. Please call back when you are ready, "
+                    "or contact Sears Home Services online to schedule service."
+                ),
+                continue_gather=False,
+            )
+
+        diagnostic_session = call_session.diagnostic_session
+        if diagnostic_session is None and call_session.diagnostic_session_id is not None:
+            diagnostic_session = DiagnosticService(self._session, self._settings).get_session(
+                call_session.diagnostic_session_id
+            )
+
+        return VoicePrompt(prompt=_empty_retry_prompt(diagnostic_session))
+
     def _book_latest_proposal(
         self,
         diagnostic_session: DiagnosticSession,
@@ -260,6 +287,20 @@ class TwilioVoiceService:
             )
         )
 
+    def _empty_speech_attempts(self, call_session: CallSession) -> int:
+        statement = (
+            select(CallEvent)
+            .where(CallEvent.call_session_id == call_session.id)
+            .where(CallEvent.event_type == "gather_response")
+            .order_by(CallEvent.id)
+        )
+        attempts = 0
+        for event in self._session.scalars(statement):
+            speech_result = event.payload.get("SpeechResult")
+            if not isinstance(speech_result, str) or not speech_result.strip():
+                attempts += 1
+        return attempts
+
 
 async def parse_twilio_form(request: Request) -> dict[str, str]:
     body = await request.body()
@@ -321,10 +362,18 @@ def gather_twiml(*, prompt: str, action_url: str) -> str:
         input="speech",
         action=action_url,
         method="POST",
+        action_on_empty_result=True,
         speech_timeout="auto",
     )
     gather.say(prompt)
-    response.say("I did not hear a response. Please call again when you are ready.")
+    response.redirect(action_url, method="POST")
+    return str(response)
+
+
+def say_and_hangup_twiml(*, prompt: str) -> str:
+    response = VoiceResponse()
+    response.say(prompt)
+    response.hangup()
     return str(response)
 
 
@@ -382,6 +431,30 @@ def _is_booking_confirmation(text: str) -> bool:
 def _has_availability_preference(text: str) -> bool:
     normalized = text.lower()
     return any(term in normalized for term in AVAILABILITY_TERMS)
+
+
+def _empty_retry_prompt(diagnostic_session: DiagnosticSession | None) -> str:
+    if diagnostic_session is None or not diagnostic_session.appliance_type:
+        return (
+            "I did not catch that. Please say the appliance and what is happening, "
+            "for example, my refrigerator is not cooling."
+        )
+    if not diagnostic_session.symptoms:
+        return (
+            f"I heard {diagnostic_session.appliance_type}. What is happening with it? "
+            "For example, say it is leaking or not cooling."
+        )
+    if not diagnostic_session.zip_code:
+        return (
+            f"I have the {diagnostic_session.appliance_type} issue noted as "
+            f"{', '.join(diagnostic_session.symptoms)}. Please say the five digit ZIP code."
+        )
+    if diagnostic_session.status == DiagnosticSessionStatus.READY_TO_SCHEDULE.value:
+        return (
+            "I have enough detail to schedule service. Please say morning or afternoon, "
+            "or say a weekday like Monday morning."
+        )
+    return "I did not catch that. Please say that again in a short phrase."
 
 
 def _latest_proposed_appointment_id(diagnostic_session: DiagnosticSession) -> int | None:
