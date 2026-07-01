@@ -27,6 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         directory:
+          - infra/bootstrap
           - infra/shared
           - backend/infra
           - frontend/infra
@@ -42,3 +43,18 @@ jobs:
         run: terraform init -backend=false
       - name: Terraform validate
         run: terraform validate
+
+  terraform-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Trivy Terraform/config scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            aquasec/trivy:0.72.0 config \
+            --skip-dirs /repo/backend/.venv \
+            --skip-dirs /repo/frontend/node_modules \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            /repo

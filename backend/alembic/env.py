@@ -21,12 +21,17 @@ target_metadata = Base.metadata
 
 
 def _database_url() -> str:
-    if os.environ.get("DATABASE_URL") or os.environ.get("SHS_DATABASE_URL"):
-        return get_settings().database_url
+    if (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("SHS_DATABASE_URL")
+        or os.environ.get("DATABASE_HOST")
+        or os.environ.get("SHS_DATABASE_HOST")
+    ):
+        return get_settings().sqlalchemy_database_url
     configured_url = config.get_main_option("sqlalchemy.url")
     if configured_url:
         return configured_url
-    return get_settings().database_url
+    return get_settings().sqlalchemy_database_url
 
 
 def run_migrations_offline() -> None:

@@ -9,8 +9,8 @@ Configure Sears DNS exactly like the existing BuildrLab `website` and `buildr-hq
 - DNS account: `buildrlab-core`
 - DNS account ID: `202612164956`
 - Hosted zone: `buildrlab.com`
-- Hosted zone ID: use the same parent hosted zone ID from the BuildrLab devops environment configuration.
-- Sears workload account: to be confirmed before Phase 7.
+- Hosted zone ID: `Z05781442GINHB3A5IJXK`
+- Sears workload account: `710045722740`
 
 ## Required Records
 
@@ -44,6 +44,7 @@ dns_account_id    = "202612164956"
 hosted_zone_id    = "<buildrlab.com hosted zone id>"
 dns_sso_profile   = "buildrlab-core"
 target_account_id = "<sears workload account id>"
+workload_account_id = "710045722740"
 ```
 
 Expected provider shape:
@@ -62,7 +63,7 @@ provider "aws" {
 
 ## Setup Sequence
 
-1. Confirm the Sears workload AWS account ID.
+1. Confirm the Sears workload AWS account ID is still `710045722740`.
 2. Add Sears environment tfvars using the same keys as `website` and `buildr-hq`: `target_account_id`, `dns_account_id`, `hosted_zone_id`, and `dns_sso_profile`.
 3. Create or reuse a project/environment-specific Route 53 delegation role in `buildrlab-core`.
 4. Configure Sears Terraform with a DNS provider alias that assumes that role.
@@ -83,7 +84,7 @@ dig +short ws.shs.buildrlab.com
 Then:
 
 ```bash
-curl -f https://api.shs.buildrlab.com/health
+curl -f https://api.shs.buildrlab.com/healthz
 ```
 
 ## Completion Criteria

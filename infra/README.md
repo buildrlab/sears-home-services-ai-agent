@@ -6,6 +6,10 @@ Terraform manages all AWS infrastructure.
 
 Terraform state must be stored in S3. Bootstrap resources live under `infra/bootstrap` and are applied deliberately before environment infrastructure.
 
+Remote backend examples use the shared `buildrlab-terraform-state` bucket and
+Terraform's native S3 `use_lockfile = true` setting. This avoids a DynamoDB lock
+table while still preventing concurrent state writes.
+
 ## DNS Boundary
 
 Use the established BuildrLab cross-account DNS pattern from the `website` and `buildr-hq` projects.
@@ -21,3 +25,24 @@ Use the established BuildrLab cross-account DNS pattern from the `website` and `
 - `infra/shared`: shared AWS resources such as DNS, GitHub OIDC, VPC, and IAM.
 - `backend/infra`: backend resources such as ALB, ECS/Fargate, ECR, Aurora, S3, SQS, SES, Secrets Manager, and CloudWatch.
 - `frontend/infra`: frontend S3/CloudFront resources.
+
+## Local Validation
+
+```bash
+scripts/terraform/validate.sh
+```
+
+The validation script runs `terraform fmt -check`, `terraform init
+-backend=false`, and `terraform validate` for all Terraform stacks. It does not
+create AWS resources.
+
+## Deployment Order
+
+1. `infra/bootstrap`
+2. `infra/shared`
+3. `backend/infra`
+4. `frontend/infra`
+
+Pass `infra/shared` outputs into `backend/infra` through environment-specific
+tfvars or GitHub Actions outputs. Do not use manual console-created application
+resources.

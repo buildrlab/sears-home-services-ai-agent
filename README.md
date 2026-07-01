@@ -117,7 +117,8 @@ See [Local Testing Runbook](docs/runbooks/local-testing.md) for the full phase-b
 
 ## Deployment
 
-All AWS infrastructure must be deployed with Terraform. Terraform state is managed in S3.
+All AWS infrastructure must be deployed with Terraform. Terraform state is
+managed in S3 with native S3 lockfiles.
 
 Planned subdomains:
 
@@ -126,6 +127,26 @@ Planned subdomains:
 - `ws.shs.buildrlab.com`
 
 DNS follows the existing BuildrLab `website` and `buildr-hq` pattern. The parent `buildrlab.com` hosted zone lives in `buildrlab-core` account `202612164956`; Sears Terraform will use a cross-account Route 53 delegation role/provider to create records directly in that hosted zone. It should not create a separate `shs.buildrlab.com` child hosted zone.
+
+The Sears workload account for the production take-home environment is
+`710045722740`.
+
+Validate all Terraform stacks locally without deploying:
+
+```bash
+scripts/terraform/validate.sh
+```
+
+Deployment order:
+
+1. `infra/bootstrap`
+2. `infra/shared`
+3. `backend/infra`
+4. `frontend/infra`
+
+The Python backend runs on ECS/Fargate. Alembic migrations run through an
+explicit one-off Fargate task definition from `backend/infra`, not during API
+startup.
 
 AWS validation must run after deployment and include API smoke tests, frontend Playwright tests against `https://shs.buildrlab.com`, Twilio call testing, SES upload-link testing, and image-analysis verification.
 

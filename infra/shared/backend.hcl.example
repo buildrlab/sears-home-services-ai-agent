@@ -1,0 +1,4 @@
+bucket       = "buildrlab-terraform-state"
+region       = "us-east-1"
+key          = "sears-home-services-ai-agent/prod/shared.tfstate"
+use_lockfile = true

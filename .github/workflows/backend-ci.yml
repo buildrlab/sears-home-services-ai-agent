@@ -36,3 +36,5 @@ jobs:
         run: python -W error -m pytest
       - name: Dependency audit
         run: pip-audit
+      - name: Docker build
+        run: docker build -t shs-ai-agent-backend:ci .

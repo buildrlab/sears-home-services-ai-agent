@@ -914,3 +914,53 @@ upload-link defaults.
 - Backend Ruff passed.
 - Backend `pip-audit` reported no known vulnerabilities.
 - Frontend `pnpm audit --audit-level=moderate` reported no known vulnerabilities.
+
+## 2026-07-01 Phase 7 Infrastructure
+
+### Prompt
+
+The user asked whether anything was needed from them or whether they could log
+off for the night. The active goal remained to continue through all phases of
+the Sears Home Services AI Agent take-home project with tested, secure,
+cost-conscious implementation, Terraform AWS deployment, GitHub PRs merged to
+`dev`, and current documentation.
+
+### Response
+
+The assistant told the user they could log off and that no immediate input was
+needed. The assistant continued Phase 7 infrastructure work using the prior
+architecture decision to run the Python backend on ECS/Fargate, with Alembic as
+an explicit one-off Fargate migration task rather than Lambda or API startup.
+
+The assistant implemented the initial Phase 7 infrastructure slice: backend
+Python 3.14 Docker packaging, AWS database-field configuration for RDS-managed
+Secrets Manager credentials, SQS polling for the vision worker, Terraform
+bootstrap/shared/backend/frontend stacks, S3 state lockfile documentation,
+BuildrLab cross-account DNS provider wiring, backend Fargate API/worker/
+migration task definitions, Aurora/S3/SQS/SES/Secrets/CloudWatch/ALB/ACM/DNS
+resources, frontend S3/CloudFront/ACM/DNS resources, Terraform validation
+script, CI updates, Dependabot bootstrap coverage, and ADR 0007 for split
+Terraform stacks with S3 lockfiles.
+
+### Verification
+
+Verification completed locally:
+
+- `scripts/terraform/validate.sh` passed for `infra/bootstrap`, `infra/shared`,
+  `backend/infra`, and `frontend/infra` using Terraform `1.15.5` and
+  `hashicorp/aws` provider `6.52.0`.
+- Trivy `0.72.0` Terraform/config scan passed with no HIGH/CRITICAL findings
+  after KMS, WAF, ALB header, public-subnet, and lifecycle hardening. The scan
+  includes documented intentional ignores for the required public ALB and
+  required outbound HTTPS egress.
+- Trivy `0.72.0` secret scan passed with no secrets found.
+- Backend `python -W error -m pytest` passed with 60 tests.
+- Backend Ruff passed.
+- Backend `pip-audit` reported no known vulnerabilities.
+- Backend Docker build passed for `shs-ai-agent-backend:phase7`.
+- Frontend `corepack pnpm lint`, `typecheck`, `test`, `build`,
+  `audit --audit-level=moderate`, and `PW_PORT=5174 corepack pnpm test:e2e`
+  passed with Node `26.4.0` and pnpm `11.9.0`.
+
+Remaining Phase 7 gate: push the branch, create the PR into `dev`, verify
+GitHub Actions, and merge when checks pass.

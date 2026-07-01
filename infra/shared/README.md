@@ -1,14 +1,33 @@
 # Shared Terraform
 
-This directory is for shared AWS resources.
+This directory manages shared AWS resources for the Sears workload account.
 
-Expected resources:
+Managed resources:
 
-- Cross-account Route 53 provider/role wiring for `buildrlab-core` account `202612164956`.
-- Route 53 records for `shs.buildrlab.com`, `api.shs.buildrlab.com`, and `ws.shs.buildrlab.com` created directly in the existing `buildrlab.com` hosted zone.
-- ACM and SES DNS validation records in the existing `buildrlab.com` hosted zone.
-- GitHub OIDC IAM role.
-- Shared VPC/subnets/security groups.
-- Shared IAM policy boundaries where appropriate.
+- VPC.
+- Public and private subnets across two Availability Zones.
+- Internet gateway.
+- Single NAT gateway for private Fargate egress to AWS APIs, Twilio, and OpenAI.
+- ECS cluster with container insights enabled.
 
 Match the `website` and `buildr-hq` pattern: cross-account DNS provider against the parent hosted zone, no Sears child hosted zone.
+
+Backend and frontend DNS records are created in their dedicated stacks using
+the same `aws.dns` provider alias, because those records depend on ALB and
+CloudFront outputs.
+
+## Local Validation
+
+```bash
+terraform init -backend=false
+terraform validate
+```
+
+## Local Plan
+
+```bash
+cp backend.hcl.example backend.hcl
+cp prod.tfvars.example prod.tfvars
+terraform init -backend-config=backend.hcl
+terraform plan -var-file=prod.tfvars
+```
