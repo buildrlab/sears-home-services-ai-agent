@@ -651,6 +651,47 @@ configuration scripts.
   expected and reported the current live blockers: invalid local `gh` auth and
   missing AWS credentials through deploy preflight.
 
+## 2026-07-01 Local Utility Scripts
+
+### Prompt
+
+The user asked for scripts under `scripts/` to start the application locally
+with Docker Compose, stop containers, perform destructive Docker cleanup, and
+run frontend/backend lint commands matching GitHub Actions. The user also asked
+for any other useful utility scripts.
+
+### Response
+
+The assistant added `docker-compose.local.yml` and `scripts/local/` utilities:
+full local app startup, project-scoped container stop, guarded Docker cleanup,
+backend lint/test, frontend lint/test, scripts-CI checks, and a reviewer smoke
+test wrapper. The cleanup script requires `--force` for deletion and requires
+explicit `--all-docker --force` before removing every Docker container, image,
+and volume on the machine.
+
+### Files Changed
+
+- `README.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `docker-compose.local.yml`
+- `docs/runbooks/local-testing.md`
+- `scripts/local/`
+- `tests/test_local_scripts.py`
+
+### Verification
+
+- `docker compose -f docker-compose.yml -f docker-compose.local.yml config --quiet`
+- `bash -n scripts/local/_common.sh scripts/local/start-app.sh scripts/local/stop-containers.sh scripts/local/tidy-docker.sh scripts/local/lint-backend.sh scripts/local/test-backend.sh scripts/local/lint-frontend.sh scripts/local/test-frontend.sh scripts/local/check-scripts.sh scripts/local/smoke-local.sh`
+- `PYTHONPYCACHEPREFIX=/private/tmp/shs-pycache python3.14 -m compileall scripts tests`
+- `PYTHONDONTWRITEBYTECODE=1 python3.14 -m unittest discover -s tests`
+  passed with 51 tests.
+- `backend/.venv/bin/ruff check scripts tests`
+- `python3.14 scripts/reviewer/final_readiness.py --json` exited nonzero as
+  expected and reported the current live blockers: invalid local `gh` auth and
+  missing AWS credentials through deploy preflight.
+- `git diff --check`
+
 ## 2026-06-30 Latest Version Policy
 
 ### Prompt

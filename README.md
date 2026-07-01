@@ -30,11 +30,12 @@ Caller
 ## Repository Layout
 
 ```text
-backend/   Python FastAPI API, Alembic migrations, backend Terraform
-frontend/  React/Vite/TypeScript/Tailwind v4 app and frontend Terraform
-infra/     Bootstrap and shared AWS Terraform
-docs/adr/  Architecture decision records
-scripts/   Twilio automation, Terraform helpers, and AWS verification scripts
+backend/        Python FastAPI API, Alembic migrations, backend Terraform
+frontend/       React/Vite/TypeScript/Tailwind v4 app and frontend Terraform
+infra/          Bootstrap and shared AWS Terraform
+docs/adr/       Architecture decision records
+scripts/local/  Local Docker Compose and CI-matching utility scripts
+scripts/        Twilio automation, Terraform helpers, and AWS verification scripts
 ```
 
 ## Local Development
@@ -47,7 +48,35 @@ The local stack will run with Docker Compose and include:
 - Local S3-compatible storage.
 - Mailpit for email testing.
 
-Start local dependencies:
+Start the full local app with Docker Compose:
+
+```bash
+scripts/local/start-app.sh
+```
+
+This starts PostgreSQL, Mailpit, MinIO, applies Alembic migrations, seeds
+technician data, creates the local MinIO upload bucket, runs the backend at
+`http://127.0.0.1:8000`, and runs the frontend at `http://127.0.0.1:5173`.
+
+Stop the local app:
+
+```bash
+scripts/local/stop-containers.sh
+```
+
+Remove local SHS Compose containers, project volumes, and local Compose images:
+
+```bash
+scripts/local/tidy-docker.sh --force
+```
+
+Run the local reviewer smoke flow after the app is up:
+
+```bash
+scripts/local/smoke-local.sh
+```
+
+Start only local dependencies for manual backend/frontend runs:
 
 ```bash
 docker compose up -d postgres mailpit minio
@@ -91,13 +120,8 @@ testing runbook for the presigned upload and vision-analysis smoke flow.
 Run frontend checks after frontend dependencies are installed:
 
 ```bash
-cd frontend
-pnpm install
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm test:e2e
+scripts/local/lint-frontend.sh
+scripts/local/test-frontend.sh
 ```
 
 Run the frontend locally:
@@ -116,6 +140,8 @@ docker compose down
 ```
 
 See [Local Testing Runbook](docs/runbooks/local-testing.md) for the full phase-by-phase local validation ladder.
+See [Local Utility Scripts](scripts/local/README.md) for Docker lifecycle,
+cleanup, and CI-matching lint/test commands.
 
 ## Deployment
 
