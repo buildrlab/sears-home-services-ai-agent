@@ -651,6 +651,33 @@ configuration scripts.
   expected and reported the current live blockers: invalid local `gh` auth and
   missing AWS credentials through deploy preflight.
 
+## 2026-07-01 AWS Deploy First Plan Fix
+
+### Prompt
+
+After deploy preflight passed, the assistant triggered AWS Deploy run
+`28505841497` from `dev` in non-mutating `plan` mode.
+
+### Response
+
+The plan run passed setup, deployment configuration, and the shared Terraform
+plan, then failed before backend planning because first-deploy plan mode had no
+shared Terraform outputs yet. The assistant patched `.github/workflows/aws-deploy.yml`
+so missing shared outputs in `plan` mode skip downstream dependent
+backend/frontend plans with a notice, while `apply` mode still fails if shared
+outputs are missing after shared apply. A regression test was added for this
+first-deploy workflow behavior.
+
+### Verification
+
+- AWS Deploy run `28505841497` failed at `Write backend Terraform variables`
+  because `PUBLIC_SUBNET_IDS` and `PRIVATE_SUBNET_IDS` were blank before shared
+  apply created shared outputs.
+- `.github/workflows/aws-deploy.yml` now captures shared outputs from one
+  `terraform output -json` payload and emits `shared_outputs_available`.
+- Backend and frontend dependent plan steps now run only for `apply` mode or
+  when shared outputs already exist in state.
+
 ## 2026-07-01 Deploy Preflight Success
 
 ### Prompt
