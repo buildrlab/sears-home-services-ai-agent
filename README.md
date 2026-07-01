@@ -74,6 +74,18 @@ curl -X POST http://127.0.0.1:8000/diagnostics/sessions \
   -d '{"customer_phone":"+15551234567"}'
 ```
 
+After creating a diagnostic session, generate a secure appliance photo upload
+link:
+
+```bash
+curl -X POST http://127.0.0.1:8000/diagnostics/sessions/1/upload-link \
+  -H "Content-Type: application/json" \
+  -d '{"email":"caller@example.test"}'
+```
+
+Mailpit shows the upload-link email at `http://127.0.0.1:8025`. See the local
+testing runbook for the presigned upload and vision-analysis smoke flow.
+
 Run frontend checks after frontend dependencies are installed:
 
 ```bash

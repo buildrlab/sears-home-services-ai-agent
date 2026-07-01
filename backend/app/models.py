@@ -49,6 +49,15 @@ class CallSessionStatus(StrEnum):
     FAILED = "failed"
 
 
+class ImageUploadStatus(StrEnum):
+    PENDING_UPLOAD = "pending_upload"
+    UPLOADED = "uploaded"
+    ANALYSIS_PENDING = "analysis_pending"
+    ANALYZED = "analyzed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+
+
 class Technician(Base):
     __tablename__ = "technicians"
 
@@ -256,6 +265,12 @@ class DiagnosticSession(Base):
         order_by="DiagnosticEvent.id",
     )
     call_sessions: Mapped[list[CallSession]] = relationship(back_populates="diagnostic_session")
+    image_uploads: Mapped[list[ImageUpload]] = relationship(
+        back_populates="diagnostic_session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ImageUpload.id",
+    )
 
 
 class DiagnosticEvent(Base):
@@ -341,3 +356,49 @@ class CallEvent(Base):
     )
 
     call_session: Mapped[CallSession] = relationship(back_populates="events")
+
+
+class ImageUpload(Base):
+    __tablename__ = "image_uploads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    diagnostic_session_id: Mapped[int] = mapped_column(
+        ForeignKey("diagnostic_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    storage_bucket: Mapped[str] = mapped_column(String(255), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    byte_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=ImageUploadStatus.PENDING_UPLOAD.value,
+        index=True,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    analysis_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    analysis_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analysis_result: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    diagnostic_session: Mapped[DiagnosticSession] = relationship(back_populates="image_uploads")

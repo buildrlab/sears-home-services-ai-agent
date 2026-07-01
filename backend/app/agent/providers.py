@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from app.agent.extraction import requests_image_upload
 from app.agent.safety import SAFETY_RESPONSE
 from app.agent.tools import AgentToolCall, ToolName, validate_tool_call
 from app.config import Settings
@@ -62,6 +63,29 @@ class DeterministicDiagnosticProvider:
                     f"{', '.join(session.symptoms)}. What ZIP code is the appliance in?"
                 ),
                 status=DiagnosticSessionStatus.ACTIVE,
+            )
+
+        if requests_image_upload(context.user_message):
+            if not session.customer_email:
+                return AgentTurnResult(
+                    assistant_message=(
+                        "What email address should I send the secure photo upload link to?"
+                    ),
+                    status=DiagnosticSessionStatus.ACTIVE,
+                    recommended_action="collect_upload_email",
+                )
+            tool_call = validate_tool_call(
+                ToolName.CREATE_UPLOAD_LINK.value,
+                {"session_id": session.id, "email": session.customer_email},
+            )
+            return AgentTurnResult(
+                assistant_message=(
+                    "I can send a secure appliance photo upload link to "
+                    f"{session.customer_email}."
+                ),
+                status=DiagnosticSessionStatus.ACTIVE,
+                recommended_action="send_upload_link",
+                tool_calls=[tool_call],
             )
 
         tool_call = validate_tool_call(
@@ -132,7 +156,8 @@ def build_diagnostic_provider(settings: Settings) -> DiagnosticProvider:
 def _instructions() -> str:
     return (
         "You are a Sears Home Services appliance diagnostic agent. Collect appliance type, "
-        "symptoms, and ZIP code. Do not repeat questions for fields already known. Refuse "
+        "symptoms, ZIP code, and email when an image upload link is needed. Do not repeat "
+        "questions for fields already known. Refuse "
         "unsafe troubleshooting involving gas, smoke, fire, sparking, electrical shock, or "
         "carbon monoxide, and steer to emergency help plus technician scheduling. Use tools "
         "only when their schemas are satisfied."
@@ -144,7 +169,9 @@ def _input_messages(context: DiagnosticContext) -> list[dict[str, str]]:
     state = (
         f"Known state: appliance={session.appliance_type or 'unknown'}; "
         f"symptoms={', '.join(session.symptoms or []) or 'unknown'}; "
-        f"zip={session.zip_code or 'unknown'}; safety_blocked={session.safety_blocked}."
+        f"zip={session.zip_code or 'unknown'}; "
+        f"email={session.customer_email or 'unknown'}; "
+        f"safety_blocked={session.safety_blocked}."
     )
     return [
         {"role": "system", "content": state},
