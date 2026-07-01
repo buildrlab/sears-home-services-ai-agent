@@ -22,13 +22,13 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7.0.0
+      - uses: pnpm/action-setup@v6.0.9
         with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 11.9.0
+      - uses: actions/setup-node@v6.4.0
         with:
-          node-version: "24"
+          node-version: "26.4.0"
           cache: "pnpm"
           cache-dependency-path: "frontend/pnpm-lock.yaml"
       - name: Validate scaffold
@@ -42,9 +42,18 @@ jobs:
       - name: Lint
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm lint
+      - name: Typecheck
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm typecheck
       - name: Unit tests
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm test
       - name: Build
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm build
+      - name: Install Playwright browsers
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright tests
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm test:e2e

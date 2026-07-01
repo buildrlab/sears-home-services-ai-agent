@@ -27,6 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         directory:
+          - infra/bootstrap
           - infra/shared
           - backend/infra
           - frontend/infra
@@ -34,8 +35,8 @@ jobs:
       run:
         working-directory: ${{ matrix.directory }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7.0.0
+      - uses: hashicorp/setup-terraform@v4.0.1
       - name: Terraform fmt
         run: terraform fmt -check -recursive
       - name: Terraform init
@@ -43,3 +44,17 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
+  terraform-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Trivy Terraform/config scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            aquasec/trivy:0.72.0 config \
+            --skip-dirs /repo/backend/.venv \
+            --skip-dirs /repo/frontend/node_modules \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            /repo

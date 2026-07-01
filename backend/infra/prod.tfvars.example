@@ -1,0 +1,45 @@
+project_name         = "sears-home-services-ai-agent"
+environment          = "prod"
+aws_region           = "us-east-1"
+workload_account_id  = "710045722740"
+dns_account_id       = "202612164956"
+hosted_zone_id       = "Z05781442GINHB3A5IJXK"
+workload_sso_profile = "buildrlab-sears-home-services-ai-agent-prod"
+dns_sso_profile      = "buildrlab-core"
+ci_cd_mode           = false
+
+# Fill from infra/shared outputs.
+vpc_id             = "vpc-REPLACE_ME"
+public_subnet_ids  = ["subnet-REPLACE_PUBLIC_A", "subnet-REPLACE_PUBLIC_B"]
+private_subnet_ids = ["subnet-REPLACE_PRIVATE_A", "subnet-REPLACE_PRIVATE_B"]
+ecs_cluster_arn    = "arn:aws:ecs:us-east-1:710045722740:cluster/REPLACE_ME"
+ecs_cluster_name   = "sears-home-services-ai-agent-prod-cluster"
+
+api_domain_name      = "api.shs.buildrlab.com"
+ws_domain_name       = "ws.shs.buildrlab.com"
+frontend_domain_name = "shs.buildrlab.com"
+backend_image_tag    = "bootstrap"
+
+allowed_cors_origins = ["https://shs.buildrlab.com"]
+twilio_voice_mode    = "gather"
+openai_model         = "gpt-5.5"
+openai_vision_model  = "gpt-5.5"
+
+# Leave null to create secret metadata, then set values with aws secretsmanager put-secret-value.
+openai_api_key_secret_arn   = null
+twilio_auth_token_secret_arn = null
+
+email_domain       = "shs.buildrlab.com"
+email_from_address = "Sears Home Services <no-reply@shs.buildrlab.com>"
+
+# Leave null so AWS selects the current Aurora PostgreSQL-compatible default for us-east-1.
+aurora_postgresql_engine_version = null
+aurora_min_capacity              = 0.5
+aurora_max_capacity              = 2
+database_deletion_protection     = true
+database_skip_final_snapshot     = false
+
+tags = {
+  Project     = "SearsHomeServicesAiAgent"
+  Environment = "prod"
+}

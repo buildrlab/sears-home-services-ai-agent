@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: shs_ai_agent
       POSTGRES_USER: shs
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-18-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shs -d shs_ai_agent"]
       interval: 5s
@@ -34,6 +34,5 @@ services:
       - minio-data:/data
 
 volumes:
-  postgres-data:
+  postgres-18-data:
   minio-data:
-

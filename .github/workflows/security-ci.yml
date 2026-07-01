@@ -14,16 +14,41 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Secret scan placeholder
+      - uses: actions/checkout@v7.0.0
+      - name: Trivy secret scan
         run: |
-          echo "Secret scanning tool will be wired during Phase 0 hardening."
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            aquasec/trivy:0.72.0 fs \
+            --scanners secret \
+            --skip-dirs /repo/backend/.venv \
+            --skip-dirs /repo/frontend/node_modules \
+            --exit-code 1 \
+            /repo
 
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Dependency audit placeholder
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.14"
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: "26.4.0"
+          cache: "pnpm"
+          cache-dependency-path: "frontend/pnpm-lock.yaml"
+      - name: Backend dependency audit
+        working-directory: backend
         run: |
-          echo "Backend and frontend dependency audits will be enforced once lockfiles exist."
-
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          pip-audit
+      - name: Frontend dependency audit
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level=moderate

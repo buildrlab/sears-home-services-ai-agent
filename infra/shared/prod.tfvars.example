@@ -1,0 +1,16 @@
+project_name          = "sears-home-services-ai-agent"
+environment           = "prod"
+aws_region            = "us-east-1"
+workload_account_id   = "710045722740"
+workload_sso_profile  = "buildrlab-sears-home-services-ai-agent-prod"
+ci_cd_mode            = false
+vpc_cidr              = "10.42.0.0/16"
+availability_zones    = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs   = ["10.42.0.0/24", "10.42.1.0/24"]
+private_subnet_cidrs  = ["10.42.10.0/24", "10.42.11.0/24"]
+enable_nat_gateway    = true
+
+tags = {
+  Project     = "SearsHomeServicesAiAgent"
+  Environment = "prod"
+}

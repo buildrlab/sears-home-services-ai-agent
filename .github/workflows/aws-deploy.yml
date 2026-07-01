@@ -1,0 +1,518 @@
+name: AWS Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "prod"
+        type: choice
+        options:
+          - prod
+      mode:
+        description: "Plan or apply"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+      bootstrap_backend:
+        description: "First backend deploy only: create backend resources with zero running tasks before pushing the first image"
+        required: true
+        default: false
+        type: boolean
+      api_desired_count:
+        description: "API Fargate desired task count for apply"
+        required: true
+        default: "1"
+        type: string
+      worker_desired_count:
+        description: "Vision worker Fargate desired task count for apply"
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-environment-${{ github.event.inputs.environment || 'prod' }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: sears-home-services-ai-agent
+  DEPLOY_ENVIRONMENT: ${{ github.event.inputs.environment || 'prod' }}
+  DEPLOY_MODE: ${{ github.event.inputs.mode || 'plan' }}
+  BOOTSTRAP_BACKEND: ${{ github.event.inputs.bootstrap_backend || 'false' }}
+  API_DESIRED_COUNT: ${{ github.event.inputs.api_desired_count || '1' }}
+  WORKER_DESIRED_COUNT: ${{ github.event.inputs.worker_desired_count || '1' }}
+  AWS_REGION: us-east-1
+  API_DOMAIN_NAME: api.shs.buildrlab.com
+  WS_DOMAIN_NAME: ws.shs.buildrlab.com
+  FRONTEND_DOMAIN_NAME: shs.buildrlab.com
+  EMAIL_DOMAIN: shs.buildrlab.com
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.environment || 'prod' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: aws-actions/configure-aws-credentials@v6.2.1
+        with:
+          role-to-assume: ${{ secrets.AWS_DEVOPS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_DEVOPS_ACCOUNT_ID }}
+
+      - uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.14"
+
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: "26.4.0"
+          cache: "pnpm"
+          cache-dependency-path: "frontend/pnpm-lock.yaml"
+
+      - name: Verify required deployment configuration
+        env:
+          AWS_DEVOPS_ROLE_ARN: ${{ secrets.AWS_DEVOPS_ROLE_ARN }}
+          AWS_DEVOPS_ACCOUNT_ID: ${{ vars.AWS_DEVOPS_ACCOUNT_ID }}
+          SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
+          SHS_DNS_ACCOUNT_ID: ${{ vars.SHS_DNS_ACCOUNT_ID }}
+          SHS_HOSTED_ZONE_ID: ${{ vars.SHS_HOSTED_ZONE_ID }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          missing=0
+          for name in AWS_DEVOPS_ROLE_ARN AWS_DEVOPS_ACCOUNT_ID SHS_WORKLOAD_ACCOUNT_ID SHS_DNS_ACCOUNT_ID SHS_HOSTED_ZONE_ID TF_STATE_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is required for AWS deploys"
+              missing=1
+            fi
+          done
+          case "$API_DESIRED_COUNT" in
+            ''|*[!0-9]*)
+              echo "::error::api_desired_count must be a non-negative integer"
+              missing=1
+              ;;
+          esac
+          case "$WORKER_DESIRED_COUNT" in
+            ''|*[!0-9]*)
+              echo "::error::worker_desired_count must be a non-negative integer"
+              missing=1
+              ;;
+          esac
+          exit "$missing"
+
+      - name: Write Terraform backend configs
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          for stack in infra/shared backend/infra frontend/infra; do
+            cat > "${stack}/backend.hcl" <<EOF
+          bucket       = "${TF_STATE_BUCKET}"
+          region       = "${AWS_REGION}"
+          key          = "${PROJECT_NAME}/${DEPLOY_ENVIRONMENT}/${stack}.tfstate"
+          use_lockfile = true
+          EOF
+          done
+
+      - name: Write shared Terraform variables
+        env:
+          SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
+        run: |
+          jq -n \
+            --arg project_name "$PROJECT_NAME" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg aws_region "$AWS_REGION" \
+            --arg workload_account_id "$SHS_WORKLOAD_ACCOUNT_ID" \
+            '{
+              project_name: $project_name,
+              environment: $environment,
+              aws_region: $aws_region,
+              workload_account_id: $workload_account_id,
+              ci_cd_mode: true,
+              workload_sso_profile: "",
+              tags: {
+                Project: "SearsHomeServicesAiAgent",
+                Environment: $environment
+              }
+            }' > "infra/shared/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
+
+      - name: Terraform shared plan
+        run: |
+          terraform -chdir=infra/shared init -backend-config=backend.hcl
+          terraform -chdir=infra/shared plan -out=tfplan
+
+      - name: Terraform shared apply
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        run: terraform -chdir=infra/shared apply -auto-approve tfplan
+
+      - name: Capture shared outputs
+        id: shared
+        run: |
+          set -euo pipefail
+          if ! shared_outputs="$(terraform -chdir=infra/shared output -json)"; then
+            if [ "$DEPLOY_MODE" = "plan" ]; then
+              echo "shared_outputs_available=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Shared outputs are unavailable in plan mode; downstream dependent stack plans will run after shared apply creates state outputs."
+              exit 0
+            fi
+            echo "::error::Shared Terraform outputs could not be read after shared apply."
+            exit 1
+          fi
+          if ! jq -e '
+            has("vpc_id") and
+            has("ecs_cluster_name") and
+            has("ecs_cluster_arn") and
+            has("public_subnet_ids") and
+            has("private_subnet_ids")
+          ' <<< "$shared_outputs" >/dev/null; then
+            if [ "$DEPLOY_MODE" = "plan" ]; then
+              echo "shared_outputs_available=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Shared outputs are unavailable in plan mode; downstream dependent stack plans will run after shared apply creates state outputs."
+              exit 0
+            fi
+            echo "::error::Shared Terraform outputs are unavailable after shared apply."
+            echo "$shared_outputs"
+            exit 1
+          fi
+          {
+            echo "shared_outputs_available=true"
+            echo "vpc_id=$(jq -r '.vpc_id.value' <<< "$shared_outputs")"
+            echo "ecs_cluster_name=$(jq -r '.ecs_cluster_name.value' <<< "$shared_outputs")"
+            echo "ecs_cluster_arn=$(jq -r '.ecs_cluster_arn.value' <<< "$shared_outputs")"
+            echo "public_subnet_ids=$(jq -c '.public_subnet_ids.value' <<< "$shared_outputs")"
+            echo "private_subnet_ids=$(jq -c '.private_subnet_ids.value' <<< "$shared_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write backend Terraform variables
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
+        env:
+          SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
+          SHS_DNS_ACCOUNT_ID: ${{ vars.SHS_DNS_ACCOUNT_ID }}
+          SHS_HOSTED_ZONE_ID: ${{ vars.SHS_HOSTED_ZONE_ID }}
+          SHARED_VPC_ID: ${{ steps.shared.outputs.vpc_id }}
+          PUBLIC_SUBNET_IDS: ${{ steps.shared.outputs.public_subnet_ids }}
+          PRIVATE_SUBNET_IDS: ${{ steps.shared.outputs.private_subnet_ids }}
+          ECS_CLUSTER_ARN: ${{ steps.shared.outputs.ecs_cluster_arn }}
+          ECS_CLUSTER_NAME: ${{ steps.shared.outputs.ecs_cluster_name }}
+        run: |
+          jq -n \
+            --arg project_name "$PROJECT_NAME" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg aws_region "$AWS_REGION" \
+            --arg workload_account_id "$SHS_WORKLOAD_ACCOUNT_ID" \
+            --arg dns_account_id "$SHS_DNS_ACCOUNT_ID" \
+            --arg hosted_zone_id "$SHS_HOSTED_ZONE_ID" \
+            --arg vpc_id "$SHARED_VPC_ID" \
+            --arg ecs_cluster_arn "$ECS_CLUSTER_ARN" \
+            --arg ecs_cluster_name "$ECS_CLUSTER_NAME" \
+            --arg api_domain_name "$API_DOMAIN_NAME" \
+            --arg ws_domain_name "$WS_DOMAIN_NAME" \
+            --arg frontend_domain_name "$FRONTEND_DOMAIN_NAME" \
+            --arg backend_image_tag "$GITHUB_SHA" \
+            --arg email_domain "$EMAIL_DOMAIN" \
+            --arg email_from_address "Sears Home Services <no-reply@${EMAIL_DOMAIN}>" \
+            --argjson public_subnet_ids "$PUBLIC_SUBNET_IDS" \
+            --argjson private_subnet_ids "$PRIVATE_SUBNET_IDS" \
+            --arg api_desired_count "$API_DESIRED_COUNT" \
+            --arg worker_desired_count "$WORKER_DESIRED_COUNT" \
+            '{
+              project_name: $project_name,
+              environment: $environment,
+              aws_region: $aws_region,
+              workload_account_id: $workload_account_id,
+              dns_account_id: $dns_account_id,
+              hosted_zone_id: $hosted_zone_id,
+              ci_cd_mode: true,
+              workload_sso_profile: "",
+              dns_sso_profile: "",
+              vpc_id: $vpc_id,
+              public_subnet_ids: $public_subnet_ids,
+              private_subnet_ids: $private_subnet_ids,
+              ecs_cluster_arn: $ecs_cluster_arn,
+              ecs_cluster_name: $ecs_cluster_name,
+              api_domain_name: $api_domain_name,
+              ws_domain_name: $ws_domain_name,
+              frontend_domain_name: $frontend_domain_name,
+              backend_image_tag: $backend_image_tag,
+              api_desired_count: ($api_desired_count | tonumber),
+              worker_desired_count: ($worker_desired_count | tonumber),
+              allowed_cors_origins: ["https://" + $frontend_domain_name],
+              email_domain: $email_domain,
+              email_from_address: $email_from_address,
+              tags: {
+                Project: "SearsHomeServicesAiAgent",
+                Environment: $environment
+              }
+            }' > "backend/infra/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
+
+      - name: Terraform backend plan
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
+        run: |
+          terraform -chdir=backend/infra init -backend-config=backend.hcl
+          terraform -chdir=backend/infra plan -out=tfplan
+
+      - name: Terraform backend bootstrap apply
+        if: ${{ env.DEPLOY_MODE == 'apply' && env.BOOTSTRAP_BACKEND == 'true' }}
+        run: |
+          terraform -chdir=backend/infra apply -auto-approve \
+            -var "api_desired_count=0" \
+            -var "worker_desired_count=0"
+
+      - name: Capture backend outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: backend
+        run: |
+          set -euo pipefail
+          backend_outputs="$(terraform -chdir=backend/infra output -json)"
+          if ! jq -e '
+            has("ecr_repository_url") and
+            has("ecs_tasks_security_group_id") and
+            has("openai_api_key_secret_arn") and
+            has("twilio_auth_token_secret_arn")
+          ' <<< "$backend_outputs" >/dev/null; then
+            echo "::error::Backend Terraform outputs are unavailable after backend bootstrap/apply."
+            echo "$backend_outputs"
+            exit 1
+          fi
+          {
+            echo "ecr_repository_url=$(jq -r '.ecr_repository_url.value' <<< "$backend_outputs")"
+            echo "ecs_tasks_security_group_id=$(jq -r '.ecs_tasks_security_group_id.value' <<< "$backend_outputs")"
+            echo "openai_api_key_secret_arn=$(jq -r '.openai_api_key_secret_arn.value' <<< "$backend_outputs")"
+            echo "twilio_auth_token_secret_arn=$(jq -r '.twilio_auth_token_secret_arn.value' <<< "$backend_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Assume workload role for AWS CLI deploy steps
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: workload
+        run: |
+          creds="$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}:role/${DEPLOY_ENVIRONMENT}-${PROJECT_NAME}-deploy" \
+            --role-session-name "github-actions-shs-deploy-${GITHUB_RUN_ID}")"
+          echo "::add-mask::$(echo "$creds" | jq -r '.Credentials.AccessKeyId')"
+          echo "::add-mask::$(echo "$creds" | jq -r '.Credentials.SecretAccessKey')"
+          echo "::add-mask::$(echo "$creds" | jq -r '.Credentials.SessionToken')"
+          {
+            echo "aws_access_key_id=$(echo "$creds" | jq -r '.Credentials.AccessKeyId')"
+            echo "aws_secret_access_key=$(echo "$creds" | jq -r '.Credentials.SecretAccessKey')"
+            echo "aws_session_token=$(echo "$creds" | jq -r '.Credentials.SessionToken')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish backend runtime secrets
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          OPENAI_SECRET_ARN: ${{ steps.backend.outputs.openai_api_key_secret_arn }}
+          TWILIO_SECRET_ARN: ${{ steps.backend.outputs.twilio_auth_token_secret_arn }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            aws secretsmanager put-secret-value \
+              --secret-id "$OPENAI_SECRET_ARN" \
+              --secret-string "$OPENAI_API_KEY"
+          elif aws secretsmanager get-secret-value --secret-id "$OPENAI_SECRET_ARN" >/dev/null 2>&1; then
+            echo "OpenAI secret already has an AWSCURRENT value."
+          else
+            echo "::error::OPENAI_API_KEY is not set and the AWS OpenAI secret has no value"
+            exit 1
+          fi
+          if [ -n "$TWILIO_AUTH_TOKEN" ]; then
+            aws secretsmanager put-secret-value \
+              --secret-id "$TWILIO_SECRET_ARN" \
+              --secret-string "$TWILIO_AUTH_TOKEN"
+          elif aws secretsmanager get-secret-value --secret-id "$TWILIO_SECRET_ARN" >/dev/null 2>&1; then
+            echo "Twilio secret already has an AWSCURRENT value."
+          else
+            echo "::error::TWILIO_AUTH_TOKEN is not set and the AWS Twilio secret has no value"
+            exit 1
+          fi
+
+      - name: Build and push backend image
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          ECR_REPOSITORY_URL: ${{ steps.backend.outputs.ecr_repository_url }}
+        run: |
+          ecr_registry="${ECR_REPOSITORY_URL%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" |
+            docker login --username AWS --password-stdin "$ecr_registry"
+          docker build --platform linux/amd64 -t "${ECR_REPOSITORY_URL}:${GITHUB_SHA}" backend
+          docker push "${ECR_REPOSITORY_URL}:${GITHUB_SHA}"
+
+      - name: Terraform backend apply
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        run: terraform -chdir=backend/infra apply -auto-approve
+
+      - name: Capture backend deployment outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: backend_deploy
+        run: |
+          set -euo pipefail
+          backend_deploy_outputs="$(terraform -chdir=backend/infra output -json)"
+          if ! jq -e '
+            has("ecs_tasks_security_group_id") and
+            has("migration_task_definition_arn")
+          ' <<< "$backend_deploy_outputs" >/dev/null; then
+            echo "::error::Backend Terraform deployment outputs are unavailable after backend apply."
+            echo "$backend_deploy_outputs"
+            exit 1
+          fi
+          {
+            echo "ecs_tasks_security_group_id=$(jq -r '.ecs_tasks_security_group_id.value' <<< "$backend_deploy_outputs")"
+            echo "migration_task_definition_arn=$(jq -r '.migration_task_definition_arn.value' <<< "$backend_deploy_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run Alembic migration task
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          ECS_CLUSTER_NAME: ${{ steps.shared.outputs.ecs_cluster_name }}
+          ECS_TASKS_SECURITY_GROUP_ID: ${{ steps.backend_deploy.outputs.ecs_tasks_security_group_id }}
+          MIGRATION_TASK_DEFINITION_ARN: ${{ steps.backend_deploy.outputs.migration_task_definition_arn }}
+          PRIVATE_SUBNET_IDS: ${{ steps.shared.outputs.private_subnet_ids }}
+        run: |
+          private_subnets="$(jq -r 'join(",")' <<< "$PRIVATE_SUBNET_IDS")"
+          task_arn="$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --task-definition "$MIGRATION_TASK_DEFINITION_ARN" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$private_subnets],securityGroups=[$ECS_TASKS_SECURITY_GROUP_ID],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' \
+            --output text)"
+          if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then
+            echo "::error::Migration task did not start"
+            exit 1
+          fi
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER_NAME" --tasks "$task_arn"
+          exit_code="$(aws ecs describe-tasks \
+            --cluster "$ECS_CLUSTER_NAME" \
+            --tasks "$task_arn" \
+            --query "tasks[0].containers[?name=='migration'].exitCode | [0]" \
+            --output text)"
+          if [ "$exit_code" != "0" ]; then
+            aws ecs describe-tasks \
+              --cluster "$ECS_CLUSTER_NAME" \
+              --tasks "$task_arn"
+            echo "::error::Migration task exited with code $exit_code"
+            exit 1
+          fi
+
+      - name: Write frontend Terraform variables
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
+        env:
+          SHS_WORKLOAD_ACCOUNT_ID: ${{ vars.SHS_WORKLOAD_ACCOUNT_ID }}
+          SHS_DNS_ACCOUNT_ID: ${{ vars.SHS_DNS_ACCOUNT_ID }}
+          SHS_HOSTED_ZONE_ID: ${{ vars.SHS_HOSTED_ZONE_ID }}
+        run: |
+          jq -n \
+            --arg project_name "$PROJECT_NAME" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg aws_region "$AWS_REGION" \
+            --arg workload_account_id "$SHS_WORKLOAD_ACCOUNT_ID" \
+            --arg dns_account_id "$SHS_DNS_ACCOUNT_ID" \
+            --arg hosted_zone_id "$SHS_HOSTED_ZONE_ID" \
+            --arg frontend_domain_name "$FRONTEND_DOMAIN_NAME" \
+            '{
+              project_name: $project_name,
+              environment: $environment,
+              aws_region: $aws_region,
+              workload_account_id: $workload_account_id,
+              dns_account_id: $dns_account_id,
+              hosted_zone_id: $hosted_zone_id,
+              ci_cd_mode: true,
+              workload_sso_profile: "",
+              dns_sso_profile: "",
+              frontend_domain_name: $frontend_domain_name,
+              tags: {
+                Project: "SearsHomeServicesAiAgent",
+                Environment: $environment
+              }
+            }' > "frontend/infra/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
+
+      - name: Terraform frontend plan
+        if: ${{ env.DEPLOY_MODE == 'apply' || steps.shared.outputs.shared_outputs_available == 'true' }}
+        run: |
+          terraform -chdir=frontend/infra init -backend-config=backend.hcl
+          terraform -chdir=frontend/infra plan -out=tfplan
+
+      - name: Terraform frontend apply
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        run: terraform -chdir=frontend/infra apply -auto-approve tfplan
+
+      - name: Capture frontend outputs
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        id: frontend
+        run: |
+          set -euo pipefail
+          frontend_outputs="$(terraform -chdir=frontend/infra output -json)"
+          if ! jq -e '
+            has("frontend_bucket_name") and
+            has("cloudfront_distribution_id")
+          ' <<< "$frontend_outputs" >/dev/null; then
+            echo "::error::Frontend Terraform outputs are unavailable after frontend apply."
+            echo "$frontend_outputs"
+            exit 1
+          fi
+          {
+            echo "frontend_bucket_name=$(jq -r '.frontend_bucket_name.value' <<< "$frontend_outputs")"
+            echo "cloudfront_distribution_id=$(jq -r '.cloudfront_distribution_id.value' <<< "$frontend_outputs")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: https://${{ env.API_DOMAIN_NAME }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Upload frontend assets
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.workload.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.workload.outputs.aws_secret_access_key }}
+          AWS_SESSION_TOKEN: ${{ steps.workload.outputs.aws_session_token }}
+          FRONTEND_BUCKET_NAME: ${{ steps.frontend.outputs.frontend_bucket_name }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.frontend.outputs.cloudfront_distribution_id }}
+        run: |
+          aws s3 sync frontend/dist/ "s3://${FRONTEND_BUCKET_NAME}/" --delete
+          invalidation_id="$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
+      - name: Remote smoke tests
+        if: ${{ env.DEPLOY_MODE == 'apply' }}
+        run: |
+          python scripts/aws/remote_smoke.py \
+            --api-base-url "https://${API_DOMAIN_NAME}" \
+            --frontend-base-url "https://${FRONTEND_DOMAIN_NAME}"
