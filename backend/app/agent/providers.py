@@ -141,23 +141,21 @@ class OpenAIResponsesProvider:
             call.name == ToolName.FIND_TECHNICIAN_MATCHES for call in tool_calls
         )
         should_use_fallback_state = not response_tool_calls
+        if has_scheduling_tool:
+            status = DiagnosticSessionStatus.READY_TO_SCHEDULE
+            recommended_action = "schedule_technician"
+        elif should_use_fallback_state:
+            status = fallback_result.status
+            recommended_action = fallback_result.recommended_action
+        else:
+            status = DiagnosticSessionStatus.ACTIVE
+            recommended_action = None
+
         return AgentTurnResult(
             assistant_message=assistant_message,
-            status=(
-                DiagnosticSessionStatus.READY_TO_SCHEDULE
-                if has_scheduling_tool
-                else fallback_result.status
-                if should_use_fallback_state
-                else DiagnosticSessionStatus.ACTIVE
-            ),
+            status=status,
             safety_blocked=fallback_result.safety_blocked if should_use_fallback_state else False,
-            recommended_action=(
-                "schedule_technician"
-                if has_scheduling_tool
-                else fallback_result.recommended_action
-                if should_use_fallback_state
-                else None
-            ),
+            recommended_action=recommended_action,
             tool_calls=tool_calls,
         )
 
