@@ -92,10 +92,20 @@ Run frontend checks after frontend dependencies are installed:
 cd frontend
 pnpm install
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm build
 pnpm test:e2e
 ```
+
+Run the frontend locally:
+
+```bash
+cd frontend
+pnpm dev
+```
+
+The upload page is served at `http://127.0.0.1:5173/uploads/<token>`.
 
 Stop local dependencies:
 

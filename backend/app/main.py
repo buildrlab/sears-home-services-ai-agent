@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.diagnostics import router as diagnostics_router
 from app.api.scheduling import router as scheduling_router
@@ -19,6 +20,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=runtime_settings.cors_origin_list,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+        max_age=600,
     )
 
     @app.get("/healthz", response_model=HealthResponse, tags=["health"])

@@ -74,8 +74,8 @@ Keep this table current after every phase or meaningful planning change.
 | Phase 3: Diagnostic Agent | Complete | Diagnostic session/event schema, deterministic agent workflow, appliance/symptom/ZIP extraction, safety refusal path, tool schemas, OpenAI Responses provider abstraction, API endpoints, tests, local API run, and PostgreSQL 18 migration/API verification are implemented. | Use diagnostic service from Phase 4 Twilio voice routes. |
 | Phase 4: Twilio Voice | In Progress | Repo implementation is complete locally: signed webhook validation, Gather fallback, ConversationRelay TwiML/WebSocket handling, call-session persistence, Alembic migration, tests, and runbook updates are implemented. Live Twilio tunnel call-through and ConversationRelay account enablement remain the live-completion gates. | Run backend through ngrok/cloudflared with real Twilio auth token, verify a live Gather fallback call, and confirm ConversationRelay enablement or keep Gather as fallback. |
 | Phase 5: Visual Diagnosis | Complete | Backend visual diagnosis is implemented and locally verified: email capture, upload-link email, hashed upload tokens, S3/MinIO presigned upload, upload metadata persistence, SQS-style worker entrypoint, deterministic/OpenAI vision providers, and session history updates. | Carry the upload APIs into the Phase 6 React upload UI. |
-| Phase 6: Frontend | Next | Not started. | Build React/Tailwind upload and reviewer dashboard UI. |
-| Phase 7: Infrastructure | Pending | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
+| Phase 6: Frontend | Complete | React/Vite/TypeScript/Tailwind frontend is implemented and locally verified with dashboard, upload page, unit/component tests, Playwright browser tests, strict CORS support, and dependency audits. | Carry the frontend build into Terraform/CloudFront in Phase 7. |
+| Phase 7: Infrastructure | Next | Not started. | Implement Terraform for AWS resources, Fargate services/tasks, remote state, and an out-of-band Alembic migration runner. |
 | Phase 8: CI/CD and Remote Validation | Pending | Not started. | Run GitHub Actions deploys and remote tests against AWS. |
 | Phase 9: Submission Hardening | Pending | Not started. | Final docs, design doc, security scan, and reviewer test script. |
 
@@ -465,27 +465,46 @@ Latest verification:
 
 Deliverables:
 
-- React/Vite/TypeScript app.
-- Tailwind CSS v4 setup.
-- Secure upload page.
-- Upload success/status page.
-- Minimal reviewer dashboard for sessions, appointments, uploads, and diagnostic events.
-- Responsive, functional, good-looking UI.
+- [x] React/Vite/TypeScript app.
+- [x] Tailwind CSS v4 setup.
+- [x] Secure upload page.
+- [x] Upload success/status page.
+- [x] Minimal reviewer dashboard for sessions, appointments, uploads, and diagnostic events.
+- [x] Responsive, functional, good-looking UI.
+- [x] Backend CORS allowlist for local and deployed frontend origins.
+- [x] Frontend CI now runs lint, typecheck, unit tests, build, and Playwright.
+- [x] Security CI now audits backend and frontend dependencies.
 
 Core tests:
 
-- Upload page rendering.
-- Invalid token state.
-- File validation.
-- Successful upload flow.
-- Dashboard data rendering.
-- Playwright upload flow.
+- [x] Upload page rendering.
+- [x] Invalid token state.
+- [x] File validation.
+- [x] Successful upload flow.
+- [x] Dashboard data rendering.
+- [x] Playwright upload flow.
 
 Exit criteria:
 
-- Frontend runs locally.
-- Playwright passes locally.
-- No browser console errors.
+- [x] Frontend runs locally.
+- [x] Playwright passes locally.
+- [x] No browser console errors.
+
+Latest local check:
+
+- 2026-07-01: Verified frontend package versions before installation: React
+  `19.2.7`, Vite `8.1.2`, TypeScript `6.0.3`, Tailwind CSS `4.3.2`,
+  Vitest `4.1.9`, Playwright `1.61.1`, ESLint `10.6.0`, jsdom `29.1.1`,
+  and lucide-react `1.22.0`.
+- 2026-07-01: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`
+  passed for the frontend using Node `26.4.0` and pnpm `11.9.0`.
+- 2026-07-01: Local Vite server ran on `127.0.0.1:5174` because `5173` was
+  occupied; `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm test:e2e` passed
+  with dashboard and upload page tests and no browser console errors.
+- 2026-07-01: Backend CORS/default upload-link changes passed 58 pytest tests
+  and Ruff.
+- 2026-07-01: Backend `pip-audit` and frontend `pnpm audit --audit-level=moderate`
+  both reported no known vulnerabilities.
 
 ## Phase 7: Infrastructure
 

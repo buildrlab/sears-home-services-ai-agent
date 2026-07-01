@@ -840,3 +840,77 @@ marking uploads complete, listing session uploads, and running local analysis.
   actual PNG upload through the presigned form, upload completion, deterministic
   vision analysis, `analyze_image` diagnostic event persistence, and `analyzed`
   image upload status.
+
+## 2026-07-01 Phase 6 Frontend
+
+### Prompt
+
+The user asked whether anything was needed from them or whether they could log
+off for the night. Prior standing instructions were to continue working through
+the phases, keep `PLAN.md` current, implement a fully working solution, commit
+and push coherent changes, create PRs into `dev`, and maintain prompt logging.
+
+### Response
+
+The assistant responded that the user could log off because Phase 6 was not
+blocked by user input. The assistant noted that future external gates may still
+need AWS deployment credentials/role confirmation and Twilio Console-only
+ConversationRelay confirmation, but those were not blocking the current
+frontend and repo-side work.
+
+The assistant then implemented the Phase 6 frontend: React 19/Vite
+8/TypeScript 6/Tailwind CSS 4 app shell, secure `/uploads/<token>` image upload
+page, upload status/details view, reviewer dashboard for diagnostic sessions,
+appointments, uploads, and events, diagnostic turn submission, upload-link
+sending, local analysis trigger, typed API client, strict Tailwind v4 CSS
+variable theme, Vitest component tests, Playwright dashboard/upload tests with
+API mocks and console-error assertions, frontend CI typecheck/Playwright
+coverage, security CI dependency audits, backend CORS settings, and frontend
+upload-link defaults.
+
+### Files Changed
+
+- `.github/workflows/frontend-ci.yml`
+- `.github/workflows/security-ci.yml`
+- `AGENTS.md`
+- `PLAN.md`
+- `PROMPTS.md`
+- `README.md`
+- `backend/.env.example`
+- `backend/README.md`
+- `backend/app/config.py`
+- `backend/app/main.py`
+- `backend/tests/test_app.py`
+- `backend/tests/test_config.py`
+- `docs/runbooks/aws-testing.md`
+- `docs/runbooks/local-testing.md`
+- `frontend/.env.example`
+- `frontend/README.md`
+- `frontend/eslint.config.js`
+- `frontend/index.html`
+- `frontend/package.json`
+- `frontend/playwright.config.ts`
+- `frontend/pnpm-lock.yaml`
+- `frontend/pnpm-workspace.yaml`
+- `frontend/src/`
+- `frontend/tests/`
+- `frontend/tsconfig.json`
+- `frontend/vite.config.ts`
+
+### Verification
+
+- Verified latest stable frontend packages before installation: React `19.2.7`,
+  React DOM `19.2.7`, Vite `8.1.2`, TypeScript `6.0.3`, Tailwind CSS `4.3.2`,
+  Vitest `4.1.9`, Playwright `1.61.1`, ESLint `10.6.0`, jsdom `29.1.1`, and
+  lucide-react `1.22.0`.
+- `pnpm lint` passed for frontend.
+- `pnpm typecheck` passed for frontend.
+- `pnpm test` passed for frontend with 7 tests.
+- `pnpm build` passed for frontend.
+- Local Vite ran on `127.0.0.1:5174` because `5173` was occupied.
+- `PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 pnpm test:e2e` passed with 2
+  Chromium tests and no browser console errors.
+- Backend CORS/default upload-link changes passed 58 pytest tests.
+- Backend Ruff passed.
+- Backend `pip-audit` reported no known vulnerabilities.
+- Frontend `pnpm audit --audit-level=moderate` reported no known vulnerabilities.

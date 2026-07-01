@@ -90,6 +90,8 @@ PLAYWRIGHT_BASE_URL=https://shs.buildrlab.com pnpm test:e2e
 ```
 
 The run must pass without unexpected browser console errors.
+Confirm the deployed frontend was built with
+`VITE_API_BASE_URL=https://api.shs.buildrlab.com`.
 
 ## Twilio Verification
 
@@ -108,6 +110,7 @@ During or after a call:
 
 - Capture caller email.
 - Send upload link through SES.
+- Confirm the upload link points to `https://shs.buildrlab.com/uploads/<token>`.
 - Confirm the email is received.
 - Upload a valid appliance image.
 - Confirm invalid file types and oversized files are rejected.

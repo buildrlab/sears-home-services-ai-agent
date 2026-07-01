@@ -42,9 +42,18 @@ jobs:
       - name: Lint
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm lint
+      - name: Typecheck
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm typecheck
       - name: Unit tests
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm test
       - name: Build
         if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
         run: pnpm build
+      - name: Install Playwright browsers
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright tests
+        if: ${{ hashFiles('frontend/pnpm-lock.yaml') != '' }}
+        run: pnpm test:e2e

@@ -46,13 +46,14 @@ TWILIO_VALIDATE_REQUESTS=true
 TWILIO_VOICE_MODE=gather
 TWILIO_CONVERSATION_RELAY_URL=wss://ws.shs.buildrlab.com/twilio/conversation
 PUBLIC_BASE_URL=
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,https://shs.buildrlab.com
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=minioadmin
 AWS_SECRET_ACCESS_KEY=minioadmin
 S3_UPLOAD_BUCKET=shs-ai-agent-uploads-local
 S3_ENDPOINT_URL=http://127.0.0.1:9000
 S3_PRESIGN_EXPIRES_SECONDS=900
-UPLOAD_LINK_BASE_URL=http://127.0.0.1:8000/uploads
+UPLOAD_LINK_BASE_URL=http://127.0.0.1:5173/uploads
 UPLOAD_TOKEN_TTL_MINUTES=60
 UPLOAD_MAX_BYTES=10485760
 UPLOAD_ALLOWED_CONTENT_TYPES=image/jpeg,image/png,image/webp
@@ -80,6 +81,7 @@ SHS_TWILIO_VALIDATE_REQUESTS=
 SHS_TWILIO_VOICE_MODE=
 SHS_TWILIO_CONVERSATION_RELAY_URL=
 SHS_PUBLIC_BASE_URL=
+SHS_CORS_ALLOWED_ORIGINS=
 SHS_AWS_REGION=
 SHS_AWS_ACCESS_KEY_ID=
 SHS_AWS_SECRET_ACCESS_KEY=
@@ -109,6 +111,10 @@ development and set `TWILIO_AUTH_TOKEN` to the real account auth token through a
 secret manager or local uncommitted `.env`. If a tunnel or reverse proxy changes
 the externally visible host, set `PUBLIC_BASE_URL` to the HTTPS URL Twilio calls
 so signature validation uses the same URL Twilio signed.
+
+`CORS_ALLOWED_ORIGINS` is a comma-separated browser allowlist. Keep it strict in
+AWS: `https://shs.buildrlab.com` should be the only browser origin unless a
+temporary review environment is explicitly added.
 
 ## Local Run
 
@@ -228,8 +234,8 @@ python -m app.workers.vision --upload-id <upload_id>
 ```
 
 The upload token is the last path segment of the emailed upload URL. The
-`presigned-post` response includes S3 form fields for browser upload; frontend
-Phase 6 will wire those fields to the actual file picker flow.
+`presigned-post` response includes S3 form fields for browser upload. The React
+frontend upload page consumes the token at `/uploads/<token>`.
 
 ## Testing
 
@@ -262,6 +268,9 @@ ConversationRelay WebSocket handler. Phase 5 tests also cover upload token
 expiry, image file validation, presigned POST generation, email rendering, queue
 enqueueing, vision worker success/failure paths, and session history updates
 after image analysis.
+
+Phase 6 tests also cover strict CORS behavior for the configured frontend
+origin and the local default upload-link URL used by the React app.
 
 For local PostgreSQL verification, `alembic upgrade head` and `python -m app.seed`
 were run against PostgreSQL 18. PostgreSQL 19 is not used because it is not GA.
