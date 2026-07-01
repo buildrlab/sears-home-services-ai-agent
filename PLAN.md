@@ -579,6 +579,7 @@ Deliverables:
 - [x] Deployment workflow verifies/populates OpenAI and Twilio Secrets Manager values before ECS task launch.
 - [x] Deployment workflow builds and uploads the React frontend to S3 and invalidates CloudFront.
 - [x] Remote smoke script checks API health, frontend shell, and upload route SPA fallback.
+- [x] Deploy preflight script checks GitHub CLI auth, GitHub environment/secrets/variables, and AWS caller identity before a deploy run.
 - [ ] GitHub deployment environment variables/secrets configured.
 - [ ] AWS deploy workflow run in plan mode after shared state exists.
 - [ ] AWS deploy workflow run in apply mode.
@@ -613,6 +614,7 @@ Current GitHub configuration check:
 - 2026-07-01: `dev` branch protection API returned `Branch not protected`.
 - 2026-07-01: `gh auth status` reported the local GitHub CLI token for `damogallagher` is invalid; PR #12 was created and merged through the GitHub connector instead.
 - 2026-07-01: `aws sts get-caller-identity` failed with `NoCredentials`; Codex cannot run Terraform deploys against AWS until AWS credentials or SSO login are available.
+- 2026-07-01: `python3.14 scripts/aws/deploy_preflight.py --json` exits nonzero and reports the current live blockers: invalid local `gh` auth and missing AWS credentials.
 
 Latest local verification:
 
@@ -626,6 +628,7 @@ Latest local verification:
 - 2026-07-01: Trivy `0.72.0` secret scan passed with no secrets found.
 - 2026-07-01: `git diff --check` passed.
 - 2026-07-01: PR #12 (`codex/phase-8-cicd-remote-validation` into `dev`) passed Scripts CI, Security CI, and Terraform CI, then merged at `9fcde662dd703022f9afe81884013ebbb120ab8b`.
+- 2026-07-01: Deploy preflight unit tests passed as part of the root script test suite.
 
 Exit criteria:
 

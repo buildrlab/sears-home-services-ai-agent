@@ -51,6 +51,16 @@ Required variables:
 - `SHS_HOSTED_ZONE_ID`: `Z05781442GINHB3A5IJXK`.
 - `TF_STATE_BUCKET`: `buildrlab-terraform-state`.
 
+Check deployment readiness from the repo root:
+
+```bash
+python3.14 scripts/aws/deploy_preflight.py
+```
+
+This command is read-only. It reports missing GitHub secrets, variables,
+deployment environment configuration, local GitHub CLI auth, and AWS CLI
+credentials before anyone triggers the deploy workflow.
+
 Terraform assumes these target roles from the devops role:
 
 - Workload account: `prod-sears-home-services-ai-agent-deploy`.
