@@ -2037,3 +2037,45 @@ URL instead of relying on fragile request ordering.
   with deployed API health, diagnostic state, production-signed Twilio webhooks,
   SES email acceptance, Tier 3 S3 object upload, OpenAI image analysis, and
   persisted session-history analysis verification.
+
+## 2026-07-01 Pre-Submit Checklist and Product Data Decision
+
+### Prompt
+
+The user asked for a pre-submit checklist to run before submission, including
+calling through Twilio, testing the various voice flows, testing the email flow,
+and deciding whether the system needs Sears product data or a live connection to
+`sears.com`.
+
+### Response
+
+The assistant added `docs/pre-submit-checklist.md` with a final command-by-command
+and manual checklist. The checklist covers repository status, GitHub Actions,
+local automated checks, local full-system smoke testing, AWS readiness and live
+smoke testing, deployed Playwright, manual Twilio calls for Tier 1 diagnostics,
+Tier 2 scheduling, safety escalation, Tier 3 upload/email/image analysis, SES
+email checks, cloud health/log checks, and the final submission package.
+
+The assistant also documented the product-data decision. The current
+implementation stores appliance categories, symptoms, ZIP code, customer
+contact data, technician specialties, technician service areas, technician
+availability, appointments, uploaded image analysis, and diagnostic/call
+history. It does not store a Sears product catalog with SKUs, model numbers,
+manuals, parts, warranties, or inventory. The assistant recommended not calling
+or scraping `sears.com` during the live phone-call path because page changes,
+latency, terms/bot controls, outages, regional inventory, and prompt-injection
+risk would make the reviewer path less reliable. If product-specific knowledge
+is needed later, the recommended pattern is an approved offline-curated product
+knowledge layer with citations and safety-policy guardrails.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `docs/submission-hardening.md`
+- `README.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `python3.14 -m unittest discover -s tests` passed with 65 tests.
+- `git diff --check` passed.

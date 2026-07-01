@@ -210,7 +210,7 @@ sandbox mode with a 200 emails/day quota and production access requested.
 See [AWS Testing Runbook](docs/runbooks/aws-testing.md) for deployment and remote validation instructions.
 See [DNS Delegation Runbook](docs/runbooks/dns-delegation.md) for the BuildrLab cross-account DNS pattern.
 See [GitHub Branch Protection Runbook](docs/runbooks/github-branch-protection.md) for recommended merge gates.
-See [Technical Design](docs/technical-design.md) and [Submission Hardening](docs/submission-hardening.md) for reviewer-facing architecture, security, cost, and known-limitations notes.
+See [Technical Design](docs/technical-design.md), [Submission Hardening](docs/submission-hardening.md), and [Pre-Submit Checklist](docs/pre-submit-checklist.md) for reviewer-facing architecture, security, cost, known-limitations, and final manual validation notes.
 See [GitHub Scripts](scripts/github/README.md) for deployment environment setup automation.
 
 Manual AWS teardown is available through `.github/workflows/aws-destroy.yml`.

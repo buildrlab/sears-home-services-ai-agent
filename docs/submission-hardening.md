@@ -7,6 +7,7 @@
 - Local setup runbook: `docs/runbooks/local-testing.md`
 - AWS deployment runbook: `docs/runbooks/aws-testing.md`
 - Technical design: `docs/technical-design.md`
+- Pre-submit checklist: `docs/pre-submit-checklist.md`
 - ADRs: `docs/adr/`
 
 ## Local Review Flow
@@ -79,6 +80,9 @@ The reviewer smoke script covers:
   mode with a 200 emails/day quota, and production access has been requested.
 
 ## Pre-Submission Checklist
+
+Use `docs/pre-submit-checklist.md` for the full command-by-command and manual
+call checklist. The summary below captures the hard gates.
 
 - [x] `backend/.venv/bin/python -W error -m pytest` passes.
 - [x] `backend/.venv/bin/ruff check backend scripts tests` passes or equivalent
