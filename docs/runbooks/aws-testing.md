@@ -61,6 +61,17 @@ This command is read-only. It reports missing GitHub secrets, variables,
 deployment environment configuration, local GitHub CLI auth, and AWS CLI
 credentials before anyone triggers the deploy workflow.
 
+To configure the GitHub deployment environment after `gh auth login` succeeds:
+
+```bash
+python3.14 scripts/github/configure_deploy.py \
+  --aws-devops-account-id "<devops-account-id>" \
+  --apply
+```
+
+To also set environment-scoped secrets from local environment variables, add
+`--include-secrets`. See `scripts/github/README.md`.
+
 Terraform assumes these target roles from the devops role:
 
 - Workload account: `prod-sears-home-services-ai-agent-deploy`.

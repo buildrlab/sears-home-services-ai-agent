@@ -580,6 +580,7 @@ Deliverables:
 - [x] Deployment workflow builds and uploads the React frontend to S3 and invalidates CloudFront.
 - [x] Remote smoke script checks API health, frontend shell, and upload route SPA fallback.
 - [x] Deploy preflight script checks GitHub CLI auth, GitHub environment/secrets/variables, and AWS caller identity before a deploy run.
+- [x] Dry-run-capable GitHub deploy configuration script can create/update the deployment environment, required variables, and optional environment-scoped secrets after `gh` authentication is restored.
 - [ ] GitHub deployment environment variables/secrets configured.
 - [ ] AWS deploy workflow run in plan mode after shared state exists.
 - [ ] AWS deploy workflow run in apply mode.
