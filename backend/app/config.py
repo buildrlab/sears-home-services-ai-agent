@@ -76,6 +76,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("PUBLIC_BASE_URL", "SHS_PUBLIC_BASE_URL"),
     )
+    cors_allowed_origins: str = Field(
+        default="http://127.0.0.1:5173,http://localhost:5173,https://shs.buildrlab.com",
+        validation_alias=AliasChoices("CORS_ALLOWED_ORIGINS", "SHS_CORS_ALLOWED_ORIGINS"),
+    )
     aws_region: str = Field(
         default="us-east-1",
         validation_alias=AliasChoices("AWS_REGION", "SHS_AWS_REGION"),
@@ -104,7 +108,7 @@ class Settings(BaseSettings):
         ),
     )
     upload_link_base_url: str = Field(
-        default="http://127.0.0.1:8000/uploads",
+        default="http://127.0.0.1:5173/uploads",
         validation_alias=AliasChoices("UPLOAD_LINK_BASE_URL", "SHS_UPLOAD_LINK_BASE_URL"),
     )
     upload_token_ttl_minutes: int = Field(
@@ -151,6 +155,14 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

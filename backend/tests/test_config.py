@@ -19,8 +19,14 @@ def test_settings_use_secure_local_defaults() -> None:
     assert settings.twilio_voice_mode == "gather"
     assert settings.twilio_conversation_relay_url == "wss://ws.shs.buildrlab.com/twilio/conversation"
     assert settings.public_base_url is None
+    assert settings.cors_origin_list == [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "https://shs.buildrlab.com",
+    ]
     assert settings.aws_region == "us-east-1"
     assert settings.s3_upload_bucket == "shs-ai-agent-uploads-local"
+    assert settings.upload_link_base_url == "http://127.0.0.1:5173/uploads"
     assert settings.upload_max_bytes == 10 * 1024 * 1024
     assert settings.email_delivery_mode == "smtp"
     assert settings.smtp_host == "127.0.0.1"
@@ -41,6 +47,10 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
     monkeypatch.setenv("SHS_TWILIO_VOICE_MODE", "conversationrelay")
     monkeypatch.setenv("SHS_TWILIO_CONVERSATION_RELAY_URL", "wss://ws.example.test/relay")
     monkeypatch.setenv("SHS_PUBLIC_BASE_URL", "https://api.example.test")
+    monkeypatch.setenv(
+        "SHS_CORS_ALLOWED_ORIGINS",
+        "https://shs.example.test, https://review.example.test",
+    )
     monkeypatch.setenv("SHS_AWS_REGION", "us-west-2")
     monkeypatch.setenv("SHS_S3_UPLOAD_BUCKET", "uploads-test")
     monkeypatch.setenv("SHS_S3_ENDPOINT_URL", "http://minio.test:9000")
@@ -68,6 +78,10 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
     assert settings.twilio_voice_mode == "conversationrelay"
     assert settings.twilio_conversation_relay_url == "wss://ws.example.test/relay"
     assert settings.public_base_url == "https://api.example.test"
+    assert settings.cors_origin_list == [
+        "https://shs.example.test",
+        "https://review.example.test",
+    ]
     assert settings.aws_region == "us-west-2"
     assert settings.s3_upload_bucket == "uploads-test"
     assert settings.s3_endpoint_url == "http://minio.test:9000"

@@ -223,12 +223,29 @@ After frontend dependencies are added:
 cd frontend
 pnpm install
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm build
 pnpm test:e2e
 ```
 
 Browser verification must include checking that the Playwright run and browser console show no unexpected errors.
+
+To run the frontend manually:
+
+```bash
+cd frontend
+pnpm dev
+```
+
+Set the backend upload-link base to the frontend route:
+
+```bash
+export UPLOAD_LINK_BASE_URL=http://127.0.0.1:5173/uploads
+```
+
+If Vite selects a different port, update `UPLOAD_LINK_BASE_URL` and rerun the
+upload-link creation request.
 
 ## Full Local Smoke Test
 
@@ -242,7 +259,9 @@ When backend and frontend app code exists, the local smoke test must verify:
 - Frontend upload page renders.
 - Upload token validation works.
 - Mailpit receives the upload-link email.
+- The email link opens the React upload page at `/uploads/<token>`.
 - Image upload writes to local S3 storage.
+- The reviewer dashboard shows sessions, appointments, uploads, and diagnostic events.
 - Vision worker updates diagnostic state using mock or configured OpenAI provider.
 
 ## Cleanup

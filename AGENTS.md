@@ -42,6 +42,12 @@ Current verified baseline as of 2026-07-01:
 - Tailwind CSS: 4.3.2.
 - Vite: 8.1.2.
 - TypeScript: 6.0.3.
+- Vitest: 4.1.9.
+- React Testing Library: 16.3.2.
+- Playwright: 1.61.1.
+- ESLint: 10.6.0.
+- jsdom: 29.1.1.
+- lucide-react: 1.22.0.
 - FastAPI: 0.138.2.
 - SQLAlchemy: 2.0.51.
 - Alembic: 1.18.5.
