@@ -2134,3 +2134,36 @@ submission.
 ### Verification
 
 - `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
+
+## 2026-07-01 Local Full-System Smoke Checklist Completion
+
+### Prompt
+
+The user asked to mark Section 3, Local Full-System Smoke, in
+`docs/pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant marked the Section 3 local full-system smoke inspection items
+complete:
+
+- dashboard sessions, appointments, uploads, and events load
+- diagnostic session creation works
+- diagnostic turns capture appliance, symptoms, ZIP, and scheduling intent
+- upload link creation produces an upload record
+- upload page accepts `jpg`, `png`, and `webp`
+- upload page rejects unsupported file types before requesting storage
+  credentials
+- image analysis finishes and appears in session history
+
+The command blocks remain in the checklist for repeatable reruns before final
+submission.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `git diff --check -- docs/pre-submit-checklist.md PROMPTS.md` passed.
