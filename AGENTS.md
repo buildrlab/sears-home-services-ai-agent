@@ -31,7 +31,7 @@ Use the latest stable, generally available version of every technology unless a 
 - If the latest version breaks the build, treat that as a blocker to investigate. If we intentionally step back to an older version, record why and add a revisit condition.
 - Dependabot must remain configured for weekly grouped updates against `dev`; do not leave dependency drift unreviewed.
 
-Current verified baseline as of 2026-06-30:
+Current verified baseline as of 2026-07-01:
 
 - GitHub Actions: `actions/checkout@v7.0.0`, `actions/setup-python@v6.3.0`, `actions/setup-node@v6.4.0`, `pnpm/action-setup@v6.0.9`.
 - Python: `python3.14` for backend containers and local tooling.
@@ -48,6 +48,8 @@ Current verified baseline as of 2026-06-30:
 - psycopg: 3.3.4.
 - pydantic-settings: 2.14.2.
 - Uvicorn: 0.49.0.
+- OpenAI Python SDK: 2.44.0.
+- OpenAI default model: `gpt-5.5`, with deterministic local fallback when no API key is configured.
 - pytest: 9.1.1.
 - pytest-cov: 7.1.0.
 - Ruff: 0.15.20.

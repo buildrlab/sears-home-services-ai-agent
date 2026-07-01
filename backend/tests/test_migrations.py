@@ -25,6 +25,8 @@ def test_alembic_upgrade_from_empty_database(sqlite_database_url: str) -> None:
             "availability_slots",
             "customers",
             "appointments",
+            "diagnostic_sessions",
+            "diagnostic_events",
         }
     finally:
         engine.dispose()
@@ -38,5 +40,11 @@ def test_initial_migration_is_present() -> None:
 
 def test_appointment_migration_is_present() -> None:
     migration_path = Path("alembic/versions/0002_create_customer_appointment_schema.py")
+
+    assert migration_path.is_file()
+
+
+def test_diagnostic_migration_is_present() -> None:
+    migration_path = Path("alembic/versions/0003_create_diagnostic_session_schema.py")
 
     assert migration_path.is_file()

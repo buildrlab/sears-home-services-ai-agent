@@ -6,7 +6,7 @@ from datetime import datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models import AppointmentStatus
+from app.models import AppointmentStatus, DiagnosticEventRole, DiagnosticSessionStatus
 
 
 class HealthResponse(BaseModel):
@@ -111,3 +111,56 @@ class AppointmentRead(BaseModel):
 
 class AppointmentListResponse(BaseModel):
     appointments: list[AppointmentRead]
+
+
+class DiagnosticSessionCreate(BaseModel):
+    external_call_id: str | None = Field(default=None, max_length=80)
+    customer_name: str | None = Field(default=None, max_length=160)
+    customer_email: str | None = Field(default=None, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
+
+
+class DiagnosticTurnRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class AgentToolCallRead(BaseModel):
+    name: str
+    arguments: dict[str, object]
+
+
+class DiagnosticEventRead(BaseModel):
+    id: int
+    role: DiagnosticEventRole
+    content: str
+    tool_name: str | None
+    tool_payload: dict[str, object] | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DiagnosticSessionRead(BaseModel):
+    id: int
+    external_call_id: str | None
+    customer_name: str | None
+    customer_email: str | None
+    customer_phone: str | None
+    appliance_type: str | None
+    symptoms: list[str]
+    zip_code: str | None
+    status: DiagnosticSessionStatus
+    safety_blocked: bool
+    recommended_action: str | None
+    events: list[DiagnosticEventRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DiagnosticSessionListResponse(BaseModel):
+    sessions: list[DiagnosticSessionRead]
+
+
+class DiagnosticTurnResponse(BaseModel):
+    session: DiagnosticSessionRead
+    assistant_message: str
+    tool_calls: list[AgentToolCallRead]
