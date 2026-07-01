@@ -8,7 +8,13 @@ def test_settings_use_secure_local_defaults() -> None:
 
     assert settings.environment == "local"
     assert settings.database_url == DEFAULT_DATABASE_URL
+    assert settings.sqlalchemy_database_url == DEFAULT_DATABASE_URL
     assert settings.database_echo is False
+    assert settings.database_host is None
+    assert settings.database_port == 5432
+    assert settings.database_name == "shs_ai_agent"
+    assert settings.database_user is None
+    assert settings.database_password is None
     assert settings.openai_api_key is None
     assert settings.openai_model == "gpt-5.5"
     assert settings.openai_reasoning_effort == "low"
@@ -37,6 +43,11 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
     monkeypatch.setenv("SHS_ENVIRONMENT", "ci")
     monkeypatch.setenv("SHS_DATABASE_URL", "sqlite+pysqlite:///:memory:")
     monkeypatch.setenv("SHS_DATABASE_ECHO", "true")
+    monkeypatch.setenv("SHS_DATABASE_HOST", "db.example.test")
+    monkeypatch.setenv("SHS_DATABASE_PORT", "5433")
+    monkeypatch.setenv("SHS_DATABASE_NAME", "shs_prod")
+    monkeypatch.setenv("SHS_DATABASE_USER", "shs_admin")
+    monkeypatch.setenv("SHS_DATABASE_PASSWORD", "p@ss word")
     monkeypatch.setenv("SHS_OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("SHS_OPENAI_MODEL", "gpt-test")
     monkeypatch.setenv("SHS_OPENAI_REASONING_EFFORT", "medium")
@@ -67,7 +78,16 @@ def test_settings_accept_prefixed_environment_aliases(monkeypatch) -> None:
 
     assert settings.environment == "ci"
     assert settings.database_url == "sqlite+pysqlite:///:memory:"
+    assert (
+        settings.sqlalchemy_database_url
+        == "postgresql+psycopg://shs_admin:p%40ss+word@db.example.test:5433/shs_prod"
+    )
     assert settings.database_echo is True
+    assert settings.database_host == "db.example.test"
+    assert settings.database_port == 5433
+    assert settings.database_name == "shs_prod"
+    assert settings.database_user == "shs_admin"
+    assert settings.database_password == "p@ss word"  # noqa: S105
     assert settings.openai_api_key == "test-key"
     assert settings.openai_model == "gpt-test"
     assert settings.openai_reasoning_effort == "medium"

@@ -36,6 +36,11 @@ the defaults target the Docker Compose PostgreSQL service:
 DATABASE_URL=postgresql+psycopg://shs:shs_local_password@localhost:5432/shs_ai_agent
 ENVIRONMENT=local
 DATABASE_ECHO=false
+DATABASE_HOST=
+DATABASE_PORT=5432
+DATABASE_NAME=shs_ai_agent
+DATABASE_USER=
+DATABASE_PASSWORD=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.5
 OPENAI_REASONING_EFFORT=low
@@ -71,6 +76,11 @@ The `SHS_`-prefixed aliases are also supported:
 SHS_DATABASE_URL=
 SHS_ENVIRONMENT=
 SHS_DATABASE_ECHO=
+SHS_DATABASE_HOST=
+SHS_DATABASE_PORT=
+SHS_DATABASE_NAME=
+SHS_DATABASE_USER=
+SHS_DATABASE_PASSWORD=
 SHS_OPENAI_API_KEY=
 SHS_OPENAI_MODEL=
 SHS_OPENAI_REASONING_EFFORT=
@@ -305,7 +315,17 @@ Phase 5 local smoke verification additionally exercises:
 - `POST /uploads/{token}/presigned-post`
 - `POST /uploads/{token}/complete`
 - `python -m app.workers.vision --upload-id <upload_id>`
+- `python -m app.workers.vision --poll-sqs` in AWS Fargate worker mode
 
 ## Infrastructure
 
 Backend AWS resources are managed from `backend/infra` using Terraform.
+
+The production container is built from `backend/Dockerfile` and runs as a
+non-root Python 3.14 app user. In AWS, Terraform injects Aurora connection
+fields as `DATABASE_HOST`, `DATABASE_USER`, and `DATABASE_PASSWORD`; local
+development can continue using `DATABASE_URL`.
+
+Alembic migrations are not run during FastAPI startup or container startup.
+`backend/infra` registers a separate one-off Fargate migration task that runs
+`alembic upgrade head` before the API service is validated.

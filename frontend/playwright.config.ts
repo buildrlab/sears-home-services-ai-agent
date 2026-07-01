@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: `pnpm dev --port ${String(port)}`,
+        command: `corepack pnpm dev --port ${String(port)}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

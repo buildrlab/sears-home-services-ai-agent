@@ -15,9 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.0
-      - name: Secret scan placeholder
+      - name: Trivy secret scan
         run: |
-          echo "Secret scanning tool will be wired during Phase 0 hardening."
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            aquasec/trivy:0.72.0 fs \
+            --scanners secret \
+            --skip-dirs /repo/backend/.venv \
+            --skip-dirs /repo/frontend/node_modules \
+            --exit-code 1 \
+            /repo
 
   dependency-audit:
     runs-on: ubuntu-latest

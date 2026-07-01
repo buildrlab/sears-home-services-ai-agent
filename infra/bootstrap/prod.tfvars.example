@@ -1,0 +1,11 @@
+project_name       = "sears-home-services-ai-agent"
+environment        = "prod"
+aws_region         = "us-east-1"
+aws_sso_profile    = "buildrlab-devops"
+state_bucket_name  = "buildrlab-terraform-state"
+force_destroy_state_bucket = false
+
+tags = {
+  Project     = "SearsHomeServicesAiAgent"
+  Environment = "prod"
+}

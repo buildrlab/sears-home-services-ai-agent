@@ -5,6 +5,7 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 ## Prerequisites
 
 - AWS region: `us-east-1`.
+- Sears workload account: `710045722740`.
 - Terraform state bootstrapped in S3.
 - GitHub OIDC configured for deployments.
 - GitHub environments configured with required secrets.
@@ -34,6 +35,19 @@ All AWS infrastructure is deployed through Terraform and GitHub Actions. Do not 
 7. Merge only after checks and plan are understood.
 8. Deploy through the approved GitHub Actions workflow.
 
+Stack order:
+
+1. `infra/bootstrap`
+2. `infra/shared`
+3. `backend/infra`
+4. `frontend/infra`
+
+Local validation without deploying:
+
+```bash
+scripts/terraform/validate.sh
+```
+
 ## Database Migrations
 
 Production Alembic migrations must run outside the normal API runtime. Do not
@@ -46,12 +60,25 @@ one-off ECS/Fargate task in the application VPC, using the same backend image
 as the API service and a least-privilege migration role:
 
 ```bash
-alembic upgrade head
+aws ecs run-task \
+  --cluster "<ecs_cluster_name>" \
+  --task-definition "<migration_task_definition_arn>" \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-private-a,subnet-private-b],securityGroups=[sg-backend-tasks],assignPublicIp=DISABLED}"
 ```
 
-The migration task must read database credentials from AWS Secrets Manager and
-must run with deployment-level concurrency controls so two migrations cannot run
-at the same time.
+The task command is `alembic upgrade head`. It reads the generated Aurora
+password from the RDS-managed Secrets Manager secret. Run only one migration task
+at a time.
+
+Useful outputs:
+
+```bash
+terraform -chdir=infra/shared output -raw ecs_cluster_name
+terraform -chdir=infra/shared output -json private_subnet_ids
+terraform -chdir=backend/infra output -raw migration_task_definition_arn
+terraform -chdir=backend/infra output -raw ecs_tasks_security_group_id
+```
 
 ## DNS Verification
 
@@ -70,7 +97,7 @@ See [DNS Delegation Runbook](dns-delegation.md).
 After deployment, verify:
 
 ```bash
-curl -f https://api.shs.buildrlab.com/health
+curl -f https://api.shs.buildrlab.com/healthz
 ```
 
 Then run the project smoke suite once it exists:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import quote_plus
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,26 @@ class Settings(BaseSettings):
     database_echo: bool = Field(
         default=False,
         validation_alias=AliasChoices("DATABASE_ECHO", "SHS_DATABASE_ECHO"),
+    )
+    database_host: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_HOST", "SHS_DATABASE_HOST"),
+    )
+    database_port: int = Field(
+        default=5432,
+        validation_alias=AliasChoices("DATABASE_PORT", "SHS_DATABASE_PORT"),
+    )
+    database_name: str = Field(
+        default="shs_ai_agent",
+        validation_alias=AliasChoices("DATABASE_NAME", "SHS_DATABASE_NAME"),
+    )
+    database_user: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_USER", "SHS_DATABASE_USER"),
+    )
+    database_password: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DATABASE_PASSWORD", "SHS_DATABASE_PASSWORD"),
     )
     openai_api_key: str | None = Field(
         default=None,
@@ -163,6 +184,18 @@ class Settings(BaseSettings):
             for origin in self.cors_allowed_origins.split(",")
             if origin.strip()
         ]
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """Return the SQLAlchemy URL, composing it from AWS-injected fields when present."""
+
+        if self.database_host and self.database_user and self.database_password:
+            user = quote_plus(self.database_user)
+            password = quote_plus(self.database_password)
+            host = self.database_host
+            database = quote_plus(self.database_name)
+            return f"postgresql+psycopg://{user}:{password}@{host}:{self.database_port}/{database}"
+        return self.database_url
 
 
 @lru_cache

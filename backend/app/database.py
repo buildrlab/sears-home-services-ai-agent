@@ -22,9 +22,10 @@ def create_database_engine(settings: Settings | None = None) -> Engine:
         "echo": runtime_settings.database_echo,
         "pool_pre_ping": True,
     }
-    if runtime_settings.database_url.startswith("sqlite"):
+    database_url = runtime_settings.sqlalchemy_database_url
+    if database_url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
-    return create_engine(runtime_settings.database_url, **kwargs)
+    return create_engine(database_url, **kwargs)
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
