@@ -121,6 +121,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("S3_ENDPOINT_URL", "SHS_S3_ENDPOINT_URL"),
     )
+    s3_public_endpoint_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_PUBLIC_ENDPOINT_URL", "SHS_S3_PUBLIC_ENDPOINT_URL"),
+    )
     s3_presign_expires_seconds: int = Field(
         default=900,
         validation_alias=AliasChoices(
