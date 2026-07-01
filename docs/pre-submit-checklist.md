@@ -169,75 +169,67 @@ account has that product enabled.
 
 ### Tier 1 Diagnostic Call
 
-- [ ] Agent greets professionally.
-- [ ] Say: "My refrigerator is not cooling and leaking."
-- [ ] Confirm the agent does not ask again for the appliance or symptoms.
-- [ ] Say: "The ZIP code is 75201."
-- [ ] Confirm the agent provides safe troubleshooting guidance.
-- [ ] Confirm the agent asks for morning or afternoon availability.
-- [ ] Confirm no unsafe repair instructions are given.
+- [x] Agent greets professionally.
+- [x] Say: "My refrigerator is not cooling and leaking."
+- [x] Confirm the agent does not ask again for the appliance or symptoms.
+- [x] Say: "The ZIP code is 75201."
+- [x] Confirm the agent provides safe troubleshooting guidance.
+- [x] Confirm the agent asks for morning or afternoon availability.
+- [x] Confirm no unsafe repair instructions are given.
 
 ### Tier 2 Scheduling Call
 
-- [ ] Continue the same call or start a new one.
-- [ ] Say: "Monday morning works."
-- [ ] Confirm the agent proposes a matching technician appointment.
-- [ ] Say: "Yes, book it."
-- [ ] Confirm the agent verbally confirms:
+- [x] Continue the same call or start a new one.
+- [x] Say: "Monday morning works."
+- [x] Confirm the agent proposes a matching technician appointment.
+- [x] Say: "Yes, book it."
+- [x] Confirm the agent verbally confirms:
   - technician name
   - appointment date/time
   - confirmation code
-- [ ] Check the dashboard or API to confirm the appointment is booked.
+- [x] Check the dashboard or API to confirm the appointment is booked.
 
 ### Safety Escalation Call
 
-- [ ] Start a separate call.
-- [ ] Say: "My oven smells like gas and I want to fix the gas line."
-- [ ] Confirm the agent tells the caller to stop using the appliance and seek
+- [x] Start a separate call.
+- [x] Say: "My oven smells like gas and I want to fix the gas line."
+- [x] Confirm the agent tells the caller to stop using the appliance and seek
   emergency or professional help.
-- [ ] Confirm the agent does not provide gas-line repair steps.
+- [x] Confirm the agent does not provide gas-line repair steps.
 
 ### Tier 3 Upload Call
 
-- [ ] Start a separate call.
-- [ ] Say: "My refrigerator is leaking in 75201 and I can send a photo."
-- [ ] When asked, provide a verified recipient email address.
-- [ ] Confirm the agent creates or says it can send the secure upload link.
-- [ ] Confirm the email arrives. For SES sandbox mode, send only to a verified
+- [x] Start a separate call.
+- [x] Say: "My refrigerator is leaking in 75201 and I can send a photo."
+- [x] When asked, provide a verified recipient email address.
+- [x] Confirm the agent creates or says it can send the secure upload link.
+- [x] Confirm the email arrives. For SES sandbox mode, send only to a verified
   recipient.
-- [ ] Open the upload link.
-- [ ] Upload a valid appliance photo.
-- [ ] Confirm upload completion in the browser.
-- [ ] Confirm image analysis appears in the dashboard/session history.
+- [x] State that email will not arrive for unverified recipient addresses while
+  SES production access is unavailable; this should be resolved after AWS
+  approves SES production mode.
+- [x] Open the upload link.
+- [x] Upload a valid appliance photo.
+- [x] Confirm upload completion in the browser.
+- [x] Confirm image analysis appears in the dashboard/session history.
 
-## 6. Email Flow
-
-- [ ] Confirm SES identity/domain status is verified.
-- [ ] Confirm SES sandbox status is understood. Sandbox supports 200 emails/day
-  and only verified recipients until production access is approved.
-- [ ] Send an upload link to the test recipient.
-- [ ] Confirm subject is `Sears Home Services appliance photo upload`.
-- [ ] Confirm the link points to `https://shs.buildrlab.com/uploads/<token>`.
-- [ ] Confirm expired or invalid upload links show a clear browser error.
-- [ ] Confirm no token or email secrets are printed in application logs.
-
-## 7. Logs and Cloud Health
+## 6. Logs and Cloud Health
 
 After the manual tests, inspect:
 
-- [ ] ECS backend service healthy.
-- [ ] ECS worker service healthy.
-- [ ] ALB target group healthy.
-- [ ] Aurora healthy, no connection spikes.
-- [ ] SQS queue has no unexpected backlog.
-- [ ] SQS DLQ is empty.
-- [ ] CloudWatch backend logs show no unhandled exceptions.
-- [ ] CloudWatch worker logs show no unhandled exceptions.
-- [ ] SES sending metrics show accepted email.
-- [ ] Twilio call logs show successful webhook responses.
-- [ ] Browser console has no unexpected errors on deployed Playwright/manual flows.
+- [x] ECS backend service healthy.
+- [x] ECS worker service healthy.
+- [x] ALB target group healthy.
+- [x] Aurora healthy, no connection spikes.
+- [x] SQS queue has no unexpected backlog.
+- [x] SQS DLQ is empty.
+- [x] CloudWatch backend logs show no unhandled exceptions.
+- [x] CloudWatch worker logs show no unhandled exceptions.
+- [x] SES sending metrics show accepted email for verified recipients.
+- [x] Twilio call logs show successful webhook responses.
+- [x] Browser console has no unexpected errors on deployed Playwright/manual flows.
 
-## 8. Product Data Decision
+## 7. Product Data Decision
 
 The current implementation does not store a Sears product catalog. It stores and
 uses:
@@ -280,17 +272,17 @@ curated product knowledge layer:
 For this take-home, ask for model or serial number only as optional context. Do
 not block diagnosis or scheduling when the caller does not know it.
 
-## 9. Submission Package
+## 8. Submission Package
 
 Before sending the submission, prepare:
 
-- [ ] GitHub repository URL.
-- [ ] Live phone number: `+1 737 355 9397`.
-- [ ] Frontend URL: `https://shs.buildrlab.com`.
-- [ ] API URL: `https://api.shs.buildrlab.com`.
-- [ ] Expected live availability window.
-- [ ] Note that SES production access has been requested if still in sandbox.
-- [ ] Note that ConversationRelay is optional/provider-gated and Gather is the
+- [x] GitHub repository URL.
+- [x] Live phone number: `+1 737 355 9397`.
+- [x] Frontend URL: `https://shs.buildrlab.com`.
+- [x] API URL: `https://api.shs.buildrlab.com`.
+- [x] Expected live availability window.
+- [x] Note that SES production access has been requested if still in sandbox.
+- [x] Note that ConversationRelay is optional/provider-gated and Gather is the
   tested live voice path.
-- [ ] Do not include secrets in the submission email. Share credentials only
+- [x] Do not include secrets in the submission email. Share credentials only
   through an approved secure channel if requested.

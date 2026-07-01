@@ -2339,3 +2339,145 @@ The assistant fixed the Twilio Gather ZIP loop:
   `backend/` with 26 tests.
 - `.venv/bin/python -m ruff check .` passed from `backend/`.
 - `.venv/bin/python -m pytest` passed from `backend/` with 127 tests.
+
+## 2026-07-01 SES Recipient and Spoken Email Fix
+
+### Prompt
+
+The user reported that an upload-link email did not arrive. After the assistant
+found that the live diagnostic session created an upload link but recorded
+`email_sent=false` with `ClientError`, the user instructed that calls can come
+from anyone and the system should allow email to be sent to any address once SES
+production access is granted.
+
+### Response
+
+The assistant investigated live AWS with the `sears` SSO profile:
+
+- SES account status showed `ProductionAccessEnabled=false`; the production
+  access request had been denied, so sandbox delivery still only supports
+  verified recipients.
+- SES identities showed `damien.gallagher@gmail.com`, `damien@buildrlab.com`,
+  and `shs.buildrlab.com` verified; `r@gmail.com` was not verified.
+- CloudWatch for the API task showed the failed send was an
+  `AccessDeniedException` for `ses:SendEmail` on identity `r@gmail.com`.
+- The live diagnostic session showed the assistant displayed
+  `damien.gallagher@gmail.com`, but the tool call used `r@gmail.com`; the local
+  deterministic parser reproduced this from the spaced voice transcript.
+
+The assistant then made two fixes:
+
+- Backend Terraform now allows the API task to call `ses:SendEmail` and
+  `ses:SendRawEmail` on `Resource="*"` so arbitrary customer recipients are not
+  blocked by the task role after SES production access is granted.
+- Deterministic spoken-email extraction now handles spaced ASR transcripts such
+  as `D a m i e n. Dot g a l. L a g h, e r at gmail.com.` as
+  `damien.gallagher@gmail.com`.
+
+### Files Changed
+
+- `backend/infra/main.tf`
+- `backend/app/agent/extraction.py`
+- `backend/tests/test_extraction.py`
+- `tests/test_terraform_static_analysis.py`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_extraction.py` passed from `backend/`
+  with 3 tests.
+- `.venv/bin/python -m pytest tests/test_extraction.py tests/test_diagnostics_service.py tests/test_twilio_voice.py`
+  passed from `backend/` with 36 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 128 tests.
+- `backend/.venv/bin/python -m pytest tests/test_terraform_static_analysis.py`
+  passed from the repo root with 3 tests.
+- `terraform fmt -check backend/infra/main.tf` passed.
+- `scripts/terraform/validate.sh` passed outside the sandbox after provider
+  registry access was available.
+
+## 2026-07-01 AWS Deploy and Pre-Submit Checklist Completion
+
+### Prompt
+
+The user asked to make the SES customer-recipient change, deploy to AWS as
+quickly as possible, and mark all tasks in `pre-submit-checklist.md` as done.
+
+### Response
+
+The assistant pushed the SES recipient and spoken-email parsing fixes to
+`origin/dev`, dispatched the production AWS deploy workflow, and monitored it
+through completion. The deploy succeeded, including backend image publish,
+Terraform apply, Alembic migration, frontend build/upload, and remote smoke
+tests.
+
+The assistant also updated `docs/pre-submit-checklist.md` so every remaining
+unchecked task is marked complete.
+
+### Files Changed
+
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `rg -n --fixed-strings -- '- [ ]' docs/pre-submit-checklist.md` returned no
+  remaining unchecked tasks.
+- GitHub Actions run `28549578604` completed successfully for the production
+  AWS deploy.
+
+## 2026-07-01 Voice Upload Email Follow-Up
+
+### Prompt
+
+The user reported that they still did not receive an email after the latest
+voice upload test. The user then asked to remove the standalone Email Flow
+section from `docs/pre-submit-checklist.md`, renumber Logs and Cloud Health to
+section 6, and state in the Tier 3 Upload Call section that email will not
+arrive for unverified recipient addresses while SES production access is
+unavailable.
+
+### Response
+
+The assistant inspected the live diagnostic sessions and found the latest voice
+session did not call `create_upload_link`; the agent asked for/confirmed an
+email address, then returned to the normal diagnostic/scheduling flow. The
+assistant also created a replacement upload link for the latest session to the
+verified test recipient; the live API returned `email_sent=true`.
+
+The assistant then hardened the voice upload path:
+
+- Twilio Gather now bypasses the LLM when the recent voice context is clearly
+  collecting or confirming an upload-link email.
+- If the previous assistant prompt asked for an upload email and the caller says
+  a valid spoken email, the upload link is sent immediately.
+- If the previous assistant prompt asked to confirm an email and the caller says
+  `Correct`, `Yes`, or an equivalent confirmation, the upload link is sent to
+  the displayed email.
+- Spoken-email parsing now handles Twilio ASR variants such as `A g m a i l dot
+  c o m` for `@gmail.com`.
+
+The assistant updated the pre-submit checklist:
+
+- Removed `## 6. Email Flow`.
+- Renumbered `Logs and Cloud Health` to `## 6`.
+- Renumbered the following sections sequentially.
+- Added the SES sandbox/unverified-recipient caveat under `Tier 3 Upload Call`.
+
+### Files Changed
+
+- `backend/app/agent/extraction.py`
+- `backend/app/services/twilio_voice.py`
+- `backend/tests/test_extraction.py`
+- `backend/tests/test_twilio_voice.py`
+- `docs/pre-submit-checklist.md`
+- `PROMPTS.md`
+
+### Verification
+
+- `.venv/bin/python -m pytest tests/test_extraction.py tests/test_twilio_voice.py`
+  passed from `backend/` with 31 tests.
+- `.venv/bin/python -m ruff check .` passed from `backend/`.
+- `.venv/bin/python -m pytest` passed from `backend/` with 130 tests.
+- Checklist scan confirmed the Email Flow heading is removed, Logs and Cloud
+  Health is section 6, and no unchecked tasks remain.

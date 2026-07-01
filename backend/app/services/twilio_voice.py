@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
-from app.agent.extraction import extract_zip_code
+from app.agent.extraction import extract_email, extract_zip_code
 from app.agent.tools import AgentToolCall, ToolName
 from app.config import Settings
 from app.exceptions import InvalidSchedulingRequestError, SlotUnavailableError
@@ -35,6 +35,15 @@ from app.services.scheduling import SchedulingService
 from app.services.uploads import UploadService, UploadValidationError
 
 CONFIRMATION_TERMS = ("yes", "book", "confirm", "schedule it", "that works")
+EMAIL_CONFIRMATION_TERMS = (
+    "yes",
+    "correct",
+    "that is correct",
+    "that's correct",
+    "right",
+    "yep",
+    "yeah",
+)
 AVAILABILITY_TERMS = (
     "morning",
     "afternoon",
@@ -160,6 +169,10 @@ class TwilioVoiceService:
                 diagnostic_id
             )
 
+        upload_message = self._create_upload_link_from_voice_context(diagnostic_session, speech)
+        if upload_message is not None:
+            return upload_message
+
         if _is_booking_confirmation(speech):
             booked_message = self._book_latest_proposal(diagnostic_session, speech)
             if booked_message is not None:
@@ -186,6 +199,28 @@ class TwilioVoiceService:
             if proposal is not None:
                 return proposal
         return result.assistant_message
+
+    def _create_upload_link_from_voice_context(
+        self,
+        diagnostic_session: DiagnosticSession,
+        speech: str,
+    ) -> str | None:
+        email: str | None = None
+        if _is_upload_email_expected(diagnostic_session):
+            email = extract_email(speech)
+        if email is None and _is_upload_email_confirmation(diagnostic_session, speech):
+            email = _latest_assistant_email_candidate(diagnostic_session)
+        if email is None:
+            return None
+
+        self._add_diagnostic_event(
+            diagnostic_session,
+            role=DiagnosticEventRole.USER,
+            content=speech,
+        )
+        diagnostic_session.customer_email = email
+        diagnostic_session.recommended_action = "send_upload_link"
+        return self._send_upload_link(diagnostic_session, email)
 
     def process_empty_speech(self, call_session: CallSession) -> VoicePrompt:
         empty_attempts = self._empty_speech_attempts(call_session)
@@ -312,6 +347,13 @@ class TwilioVoiceService:
             self._session.flush()
             return message
 
+        return self._send_upload_link(diagnostic_session, email)
+
+    def _send_upload_link(
+        self,
+        diagnostic_session: DiagnosticSession,
+        email: str,
+    ) -> str:
         try:
             result = UploadService(self._session, self._settings).create_upload_link(
                 session_id=diagnostic_session.id,
@@ -510,6 +552,50 @@ def _redact_payload(payload: dict[str, object]) -> dict[str, object]:
 def _is_booking_confirmation(text: str) -> bool:
     normalized = text.lower()
     return any(term in normalized for term in CONFIRMATION_TERMS)
+
+
+def _is_upload_email_expected(diagnostic_session: DiagnosticSession) -> bool:
+    if diagnostic_session.recommended_action in {"collect_upload_email", "send_upload_link"}:
+        return True
+    latest_assistant_message = _latest_assistant_message(diagnostic_session)
+    if latest_assistant_message is None:
+        return False
+    normalized = latest_assistant_message.lower()
+    return (
+        "email address" in normalized
+        and ("upload" in normalized or "photo" in normalized)
+    ) or "email domain" in normalized
+
+
+def _is_upload_email_confirmation(
+    diagnostic_session: DiagnosticSession,
+    text: str,
+) -> bool:
+    latest_assistant_message = _latest_assistant_message(diagnostic_session)
+    if latest_assistant_message is None:
+        return False
+    normalized_message = latest_assistant_message.lower()
+    if not any(term in normalized_message for term in ("heard", "confirm", "correct")):
+        return False
+    if _latest_assistant_email_candidate(diagnostic_session) is None:
+        return False
+    normalized_text = re.sub(r"[^a-z0-9']+", " ", text.lower()).strip()
+    padded_text = f" {normalized_text} "
+    return any(f" {term} " in padded_text for term in EMAIL_CONFIRMATION_TERMS)
+
+
+def _latest_assistant_email_candidate(diagnostic_session: DiagnosticSession) -> str | None:
+    latest_assistant_message = _latest_assistant_message(diagnostic_session)
+    if latest_assistant_message is None:
+        return None
+    return extract_email(latest_assistant_message)
+
+
+def _latest_assistant_message(diagnostic_session: DiagnosticSession) -> str | None:
+    for event in reversed(diagnostic_session.events):
+        if event.role == DiagnosticEventRole.ASSISTANT.value:
+            return event.content
+    return None
 
 
 def _has_availability_preference(text: str) -> bool:

@@ -36,6 +36,12 @@ class TerraformStaticAnalysisTests(unittest.TestCase):
         self.assertIn("default     = false", backend_variables)
         self.assertIn("default     = false", frontend_variables)
 
+    def test_api_task_can_send_upload_links_to_any_customer_email(self) -> None:
+        main_tf = BACKEND_MAIN.read_text(encoding="utf-8")
+
+        self.assertIn('"ses:SendEmail"', main_tf)
+        self.assertIn("Resource = \"*\"", main_tf)
+
 
 if __name__ == "__main__":
     unittest.main()

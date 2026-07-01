@@ -558,7 +558,9 @@ resource "aws_iam_role_policy" "api_task" {
           "ses:SendEmail",
           "ses:SendRawEmail"
         ]
-        Resource = aws_ses_domain_identity.email.arn
+        # Calls can come from any customer, so do not restrict recipient identities here.
+        # SES sandbox still limits delivery to verified recipients until production access is granted.
+        Resource = "*"
       }
     ]
   })
