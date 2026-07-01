@@ -651,6 +651,44 @@ configuration scripts.
   expected and reported the current live blockers: invalid local `gh` auth and
   missing AWS credentials through deploy preflight.
 
+## 2026-07-01 Deploy Preflight Progress
+
+### Prompt
+
+The user reported that they ran `gh auth login -h github.com`,
+`aws sso login --profile sears`, exported `AWS_PROFILE=sears`, and reran
+`scripts/aws/deploy_preflight.py --json`. The new preflight output showed
+GitHub CLI auth and AWS identity passing, with GitHub `prod` environment,
+environment secrets/variables, and `dev` branch protection still failing.
+
+### Response
+
+The assistant identified that the original blockers were cleared and that the
+remaining failures had moved to GitHub-side deployment configuration. The
+assistant dry-ran and applied `scripts/github/configure_branch_protection.py
+--apply`, then reran deploy preflight with `AWS_PROFILE=sears`. Branch
+protection checks and AWS identity passed. The remaining blockers are the
+missing GitHub `prod` environment plus required environment-scoped variables
+and secrets.
+
+### Verification
+
+- `python3.14 scripts/github/configure_branch_protection.py` dry run matched
+  the documented conservative `dev` branch protection policy.
+- `python3.14 scripts/github/configure_branch_protection.py --apply` succeeded
+  through the GitHub API.
+- `AWS_PROFILE=sears python3.14 scripts/aws/deploy_preflight.py --json` passed
+  GitHub CLI auth, `dev` branch protection checks, and AWS identity for account
+  `710045722740`; it still failed on missing GitHub `prod` environment,
+  environment-scoped secrets, and environment-scoped variables.
+
+### Remaining Inputs
+
+- `AWS_DEVOPS_ACCOUNT_ID`
+- `AWS_DEVOPS_ROLE_ARN`
+- `OPENAI_API_KEY`
+- `TWILIO_AUTH_TOKEN`
+
 ## 2026-07-01 Local Utility Scripts
 
 ### Prompt
