@@ -155,3 +155,15 @@ Rules:
 - Do not merge dependency updates unless base branch, mergeability, and required checks are verified.
 - Do not auto-commit unrelated local changes.
 - All deploys to AWS must run through Terraform and GitHub Actions.
+
+# BEGIN Repo health
+## Repository Health Guardrails
+
+- Run `bash scripts/repo-health.sh` before handing off non-trivial changes.
+- Detected stack: Playwright, Python, Terraform or infra, asset/document outputs.
+- Package manager: none.
+- Primary checks: conflict-marker, env-file, docs-link, and format checks.
+- Keep edits scoped to the requested behavior and avoid rewriting existing uncommitted work.
+- For infra changes, run Terraform formatting before review.
+- For UI changes, include either a component/unit test or a manual verification note.
+# END Repo health

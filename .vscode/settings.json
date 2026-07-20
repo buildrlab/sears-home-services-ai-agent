@@ -1,0 +1,14 @@
+{
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "search.exclude": {
+    "**/.next": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/dist": true,
+    "**/node_modules": true,
+    "**/playwright-report": true,
+    "**/test-results": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "charliermarsh.ruff",
+    "editorconfig.editorconfig",
+    "hashicorp.terraform",
+    "ms-playwright.playwright",
+    "ms-python.python"
+  ]
+}
