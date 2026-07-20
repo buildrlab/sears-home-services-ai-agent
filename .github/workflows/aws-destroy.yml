@@ -282,10 +282,15 @@ jobs:
               }
             }' > "frontend/infra/${DEPLOY_ENVIRONMENT}.auto.tfvars.json"
 
+      - name: Terraform frontend init
+        run: terraform -chdir=frontend/infra init -backend-config=backend.hcl
+
+      - name: Terraform frontend prepare for destroy
+        if: ${{ env.DESTROY_MODE == 'destroy' }}
+        run: terraform -chdir=frontend/infra apply -auto-approve -target=aws_s3_bucket.frontend
+
       - name: Terraform frontend plan destroy
-        run: |
-          terraform -chdir=frontend/infra init -backend-config=backend.hcl
-          terraform -chdir=frontend/infra plan -destroy -out=tfplan.destroy
+        run: terraform -chdir=frontend/infra plan -destroy -out=tfplan.destroy
 
       - name: Terraform frontend destroy
         if: ${{ env.DESTROY_MODE == 'destroy' }}
