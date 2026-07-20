@@ -2481,3 +2481,32 @@ The assistant updated the pre-submit checklist:
 - `.venv/bin/python -m pytest` passed from `backend/` with 130 tests.
 - Checklist scan confirmed the Email Flow heading is removed, Logs and Cloud
   Health is section 6, and no unchecked tasks remain.
+
+## 2026-07-20 Post-Merge CI Repair
+
+### Prompt
+
+The user asked to finish the Sears pull request after its external merge left
+CI red, repair the TypeScript/ESLint failure and invalid GitHub Action tags,
+fully validate the changes, and merge a green dev-to-main follow-up.
+
+### Response
+
+The assistant restored the frontend to TypeScript 6.0.3, regenerated the pnpm
+lockfile, and corrected both AWS workflows to use valid version-prefixed
+`configure-aws-credentials` action tags.
+
+### Files Changed
+
+- `.github/workflows/aws-deploy.yml`
+- `.github/workflows/aws-destroy.yml`
+- `frontend/package.json`
+- `frontend/pnpm-lock.yaml`
+- `PROMPTS.md`
+
+### Verification
+
+- Frontend lint, typecheck, unit tests, production build, Playwright tests, and
+  dependency audit passed.
+- Backend Ruff, 130 pytest tests, and dependency audit passed.
+- Script Ruff, bytecode compilation, and 66 unittest tests passed.
