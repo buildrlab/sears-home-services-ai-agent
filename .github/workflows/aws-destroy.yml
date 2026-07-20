@@ -289,6 +289,35 @@ jobs:
         if: ${{ env.DESTROY_MODE == 'destroy' }}
         run: terraform -chdir=frontend/infra apply -auto-approve -target=aws_s3_bucket.frontend
 
+      - name: Empty frontend bucket
+        if: ${{ env.DESTROY_MODE == 'destroy' && env.DELETE_DATA == 'true' }}
+        run: |
+          set -euo pipefail
+          BUCKET="$(terraform -chdir=frontend/infra output -raw frontend_bucket_name)"
+          if [ -z "$BUCKET" ]; then
+            echo "::error::Could not resolve frontend bucket name from Terraform outputs"
+            exit 1
+          fi
+          echo "::notice::Emptying all object versions and delete markers from ${BUCKET}"
+          # Versioned buckets reject DeleteBucket until every version AND delete
+          # marker is removed. list-object-versions returns them in separate keys,
+          # so drain each in 1000-object batches (the delete-objects API limit).
+          for selector in Versions DeleteMarkers; do
+            while :; do
+              batch="$(aws s3api list-object-versions --bucket "$BUCKET" --max-items 1000 \
+                --query "{Objects: ${selector}[].{Key:Key,VersionId:VersionId}}" \
+                --output json)"
+              count="$(echo "$batch" | jq '.Objects | length')"
+              if [ "$count" = "null" ] || [ "$count" -eq 0 ]; then
+                break
+              fi
+              echo "$batch" | jq '{Objects, Quiet: true}' > /tmp/frontend-delete.json
+              aws s3api delete-objects --bucket "$BUCKET" --delete file:///tmp/frontend-delete.json
+              echo "Deleted ${count} ${selector}"
+            done
+          done
+          echo "::notice::Bucket ${BUCKET} is now empty"
+
       - name: Terraform frontend plan destroy
         run: terraform -chdir=frontend/infra plan -destroy -out=tfplan.destroy
 
