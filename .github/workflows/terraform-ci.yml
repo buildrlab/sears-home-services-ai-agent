@@ -35,7 +35,7 @@ jobs:
       run:
         working-directory: ${{ matrix.directory }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: hashicorp/setup-terraform@v4.0.1
       - name: Terraform fmt
         run: terraform fmt -check -recursive
@@ -47,7 +47,7 @@ jobs:
   terraform-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Trivy Terraform/config scan
         run: |
           docker run --rm \
